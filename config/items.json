@@ -1,0 +1,22 @@
+{
+  "_comment": "가락 품목코드 ↔ 자사 MC(자재그룹) 매핑. alert_pct를 품목별로 넣으면 전역 기본값을 덮어씁니다.",
+  "defaults": {
+    "alert_pct": 10.0,
+    "chart_days": 30,
+    "table_sort": "abs_pct_desc"
+  },
+  "items": [
+    { "item_cd": "15100", "label": "고구마",   "mc_cd": "020203", "mc_nm": "고구마",   "buy_grp": "DBA", "sector": "채소", "watch": true },
+    { "item_cd": "15205", "label": "감자(수미)", "mc_cd": "020201", "mc_nm": "감자",   "buy_grp": "DBA", "sector": "채소", "watch": true },
+    { "item_cd": "21100", "label": "배추",     "mc_cd": "020101", "mc_nm": "배추",     "buy_grp": "DBA", "sector": "채소", "watch": true },
+    { "item_cd": "21200", "label": "양배추",   "mc_cd": "020105", "mc_nm": "양채류",   "buy_grp": "DBA", "sector": "채소", "watch": true },
+    { "item_cd": "22302", "label": "오이(백다다기)", "mc_cd": "020302", "mc_nm": "오이", "buy_grp": "DBA", "sector": "채소", "watch": true },
+    { "item_cd": "23100", "label": "무",       "mc_cd": "020202", "mc_nm": "무우",     "buy_grp": "DBA", "sector": "채소", "watch": true },
+    { "item_cd": "24400", "label": "양파",     "mc_cd": "020204", "mc_nm": "양파",     "buy_grp": "DBA", "sector": "채소", "watch": true },
+    { "item_cd": "24501", "label": "대파",     "mc_cd": "020102", "mc_nm": "파",       "buy_grp": "DBA", "sector": "채소", "watch": true },
+    { "item_cd": "22500", "label": "토마토",   "mc_cd": "010205", "mc_nm": "토마토",   "buy_grp": "DCA", "sector": "청과", "watch": true },
+    { "item_cd": "41105", "label": "사과(부사)", "mc_cd": "010101", "mc_nm": "사과",   "buy_grp": "DCA", "sector": "청과", "watch": true },
+    { "item_cd": "41201", "label": "배(신고)",  "mc_cd": "010102", "mc_nm": "배",      "buy_grp": "DCA", "sector": "청과", "watch": true },
+    { "item_cd": "41500", "label": "감귤",     "mc_cd": "010103", "mc_nm": "감귤",     "buy_grp": "DCA", "sector": "청과", "watch": true }
+  ]
+}

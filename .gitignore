@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# 실행 로그·임시
+logs/
+*.log
+out/*.pdf
+
+# 스크래치
+scratchpad/

@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가락시장 도매시세 · 농산</title>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#fff; --ink:#15181c; --muted:#6b7280; --line:#e4e7eb; --soft:#f0f2f5;
+  --up:#d0342c; --down:#1257c4; --flat:#8b929b;
+  --cheong:#b26a00; --chae:#2f7d4f; --yang:#5b53b8;
+  --sh:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.09);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#131619; --card:#1b1f23; --ink:#e7eaed; --muted:#98a1ab; --line:#2a3035; --soft:#22272c;
+  --up:#ff6b60; --down:#6ea8ff; --cheong:#e0a03c; --chae:#5cbb82; --yang:#9b93f0;
+  --sh:0 1px 3px rgba(0,0,0,.4);
+}}
+*{box-sizing:border-box}
+body{margin:0;padding:32px 20px 60px;background:var(--bg);color:var(--ink);
+  font:14px/1.55 "Pretendard","Malgun Gothic",-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto}
+h1{font-size:29px;font-weight:750;margin:0 0 7px;letter-spacing:-.7px;line-height:1.2}
+.meta{color:var(--muted);font-size:13.5px;margin-bottom:22px}
+.meta b{color:var(--ink);font-weight:600}
+h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:24px 0 10px}
+
+/* 고정 내비게이션 — 어느 단계에서든 자유 이동 */
+.nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px;
+  background:var(--card);border:1px solid var(--line);border-radius:11px;
+  padding:10px 12px;box-shadow:var(--sh)}
+.nav .back{font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;
+  padding:7px 13px 7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);
+  color:var(--ink);cursor:pointer;transition:border-color .12s,background .12s}
+.nav .back:hover{border-color:var(--muted);background:var(--soft)}
+.nav .div{width:1px;height:22px;background:var(--line);margin:0 4px}
+.nav .lvl{font:inherit;font-size:13.5px;font-weight:600;padding:7px 15px;border-radius:8px;
+  border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;
+  transition:background .12s,color .12s,border-color .12s}
+.nav .lvl:hover{border-color:var(--muted);color:var(--ink)}
+.nav .lvl.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+/* 부문 칩은 그래프와 같은 색으로 — 청과=주황, 채소=녹색 */
+.nav .lvl.cheong{color:var(--cheong);border-color:var(--cheong)}
+.nav .lvl.chae{color:var(--chae);border-color:var(--chae)}
+.nav .lvl.cheong.on{background:var(--cheong);color:#fff;border-color:var(--cheong)}
+.nav .lvl.chae.on{background:var(--chae);color:#fff;border-color:var(--chae)}
+.nav .cur{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:650;
+  padding:7px 8px 7px 14px;border-radius:8px;background:var(--soft);color:var(--ink)}
+.nav .cur .x{font:inherit;font-size:15px;line-height:1;color:var(--muted);background:none;border:none;
+  cursor:pointer;padding:0 6px}
+.nav .cur .x:hover{color:var(--ink)}
+.nav .tip{font-size:11.5px;color:var(--muted);margin-left:auto;padding-right:4px}
+
+/* 클릭 가능 표시 */
+.hint{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--up);
+  background:rgba(208,52,44,.09);border:1px solid rgba(208,52,44,.28);border-radius:9px;
+  padding:9px 16px;margin-bottom:12px;letter-spacing:-.2px}
+@media (prefers-color-scheme:dark){.hint{background:rgba(255,107,96,.12);border-color:rgba(255,107,96,.35)}}
+td.chev{width:26px;text-align:right;color:var(--muted);font-size:16px;opacity:.45;padding-left:0}
+tbody tr.click:hover td.chev{opacity:1;color:var(--ink)}
+tbody tr.click .item-link{border-bottom:1px dashed var(--muted);padding-bottom:1px}
+tbody tr.click:hover .item-link{border-bottom-color:var(--ink)}
+.card.click{position:relative}
+.card.click::after{content:"자세히 ›";position:absolute;top:14px;right:16px;font-size:11.5px;
+  color:var(--muted);background:var(--soft);border-radius:20px;padding:3px 10px}
+.card.click:hover::after{color:var(--ink)}
+
+/* 뉴스 */
+.news{margin-top:34px;border-top:1px solid var(--line);padding-top:20px}
+.newslist{display:flex;flex-direction:column;gap:7px}
+.newsitem{display:flex;gap:16px;align-items:baseline;background:var(--card);border:1px solid var(--line);
+  border-radius:9px;padding:12px 18px;box-shadow:var(--sh);text-decoration:none;color:var(--ink)}
+.newsitem:hover{border-color:var(--muted)}
+.newsitem .d{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:1px}
+.newsitem .t{font-size:13.5px;line-height:1.45;flex:1 1 auto}
+.newsitem .b{font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* 드릴다운 경로 */
+.crumb{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:16px;font-size:13px}
+.crumb button{font:inherit;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 9px;
+  border-radius:7px;text-decoration:underline;text-underline-offset:2px}
+.crumb button:hover{background:var(--soft);color:var(--ink)}
+.crumb .sep{color:var(--muted);opacity:.5}
+.crumb .cur{font-weight:650;padding:4px 9px}
+
+/* 텍스트박스 KPI */
+.kpis{display:grid;gap:11px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:6px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;box-shadow:var(--sh)}
+.kpi .k{font-size:11.5px;color:var(--muted);letter-spacing:.3px}
+.kpi .v{font-size:24px;font-weight:700;letter-spacing:-.6px;margin-top:3px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+.kpi.acc-cheong{border-left:3px solid var(--cheong)}
+.kpi.acc-chae{border-left:3px solid var(--chae)}
+
+.cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px;box-shadow:var(--sh)}
+.card h3{margin:0 0 3px;font-size:14px;font-weight:650}
+.card .sub{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+.card.click{cursor:pointer;transition:border-color .12s,transform .12s}
+.card.click:hover{border-color:var(--muted);transform:translateY(-1px)}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11.5px;font-weight:650;color:var(--muted);padding:9px 10px;
+  border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:none}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover{background:var(--soft)}
+.table-wrap{background:var(--card);border:1px solid var(--line);border-radius:11px;box-shadow:var(--sh);overflow-x:auto}
+.table-wrap table{min-width:640px}
+.up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--flat)}
+.strong{font-weight:650}
+.badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid currentColor}
+.badge.청과{color:var(--cheong)}.badge.채소{color:var(--chae)}.badge.양곡{color:var(--yang)}
+.searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.search{font:inherit;font-size:13px;padding:7px 12px;border-radius:8px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);min-width:260px;flex:0 1 340px}
+.search:focus{outline:none;border-color:var(--muted)}
+.search::placeholder{color:var(--muted)}
+.hits{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.clearq{font:inherit;font-size:12px;background:none;border:none;color:var(--muted);cursor:pointer;
+  text-decoration:underline;text-underline-offset:2px;padding:4px 2px}
+.clearq:hover{color:var(--ink)}
+.note{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.6}
+.empty{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:28px;
+  text-align:center;color:var(--muted);box-shadow:var(--sh)}
+.banner{padding:11px 14px;border-radius:8px;margin-bottom:16px;font-size:12.5px;
+  background:#fff6e0;color:#6b4a00;border:1px solid #f0d79a}
+@media (prefers-color-scheme:dark){.banner{background:#33290f;color:#f5cd6b;border-color:#544218}}
+svg{display:block;max-width:100%}
+.hit{cursor:pointer}
+svg .hit:hover ~ *{}
+svg:hover .hit{}
+.axis{stroke:var(--line);stroke-width:1}
+.tick{fill:var(--muted);font-size:10px}
+.glabel{fill:var(--ink);font-size:11px}
+.gval{fill:var(--muted);font-size:10.5px;font-variant-numeric:tabular-nums}
+footer{margin-top:28px;font-size:11.5px;color:var(--muted);line-height:1.7}
+footer b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>가락시장 도매시세 · 농산</h1>
+  <div class="meta" id="meta"></div>
+  <div class="nav" id="nav"></div>
+  <div id="view"></div>
+  <div class="news" id="news"></div>
+  <footer>
+    출처: 서울시농수산식품공사 유통정보시스템 · 경매(정가수의) 상장거래, 가격은 <b>등급 상</b> 기준, 물량 단위 <b>톤</b><br>
+    경매는 당일 저녁부터 다음날 새벽에 진행되며, 과일류는 오전 11시 이후 확정됩니다. 수집은 매일 14:00.<br>
+    대표품목 변동률은 <b>품종별 전일대비의 중앙값</b>입니다 — 품종마다 단위가 달라 절대가 평균은 쓰지 않았습니다.<br>
+    본 자료는 <b>내부 참고용</b>이며, 계약·납품·사실조회 등의 근거·증빙자료로 사용할 수 없습니다.
+  </footer>
+</div>
+
+<script>
+var DATA = /*__DATA__*/ null;
+
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { level: 'all', sector: null, item: null };
+  var MAJOR_PER_SECTOR = 20;   // 급등락 집계에 넣을 부문별 반입량 상위 품목 수
+
+  // ---------- 포맷 ----------
+  function n(v) { return v == null ? '—' : v.toLocaleString(); }
+  function pct(v) { return v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1) + '%'; }
+  function cls(v) { return v == null ? 'flat' : v > 0.05 ? 'up' : v < -0.05 ? 'down' : 'flat'; }
+  function cvar(v) { return v == null ? 'var(--flat)' : v > 0.05 ? 'var(--up)' : v < -0.05 ? 'var(--down)' : 'var(--flat)'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // ---------- 차트 ----------
+  function barChart(rows, opt) {
+    opt = opt || {};
+    if (!rows.length) return '<div class="note">데이터가 없습니다.</div>';
+    var w = 460, rowH = 26, padL = 96, padR = 58, h = rows.length * rowH + 12;
+    var max = Math.max.apply(null, rows.map(function (r) { return r.value; })) || 1;
+    var bw = w - padL - padR;
+    var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + esc(opt.label || '막대그래프') + '">';
+    rows.forEach(function (r, i) {
+      var y = i * rowH + 6, len = Math.max(2, r.value / max * bw);
+      var hit = r.item ? ' data-item="' + esc(r.item) + '" data-sector="' + esc(r.sector) + '" class="hit"' : '';
+      s += '<text class="glabel" x="' + (padL - 8) + '" y="' + (y + 12) + '" text-anchor="end">' + esc(r.name) + '</text>';
+      s += '<rect x="' + padL + '" y="' + y + '" width="' + len.toFixed(1) + '" height="14" rx="3" fill="' + (r.color || 'var(--chae)') + '" opacity=".85"/>';
+      s += '<text class="gval" x="' + (padL + len + 6) + '" y="' + (y + 11) + '">' + n(r.value) + (opt.unit || '') +
+           (r.delta == null ? '' : ' <tspan fill="' + cvar(r.delta) + '">' + pct(r.delta) + '</tspan>') + '</text>';
+      if (r.item) s += '<rect x="0" y="' + y + '" width="' + w + '" height="' + (rowH - 2) + '" fill="transparent"' + hit +
+        '><title>' + esc(r.name) + ' 상세 보기</title></rect>';
+    });
+    return s + '</svg>';
+  }
+
+  function lineChart(series, opt) {
+    opt = opt || {};
+    var pts = (series || []).filter(function (p) { return p[1] != null; });
+    if (pts.length < 2) return '<div class="note">추이를 그릴 데이터가 부족합니다.</div>';
+    var w = 460, h = 150, padL = 52, padR = 12, padT = 12, padB = 26;
+    var vals = pts.map(function (p) { return p[1]; });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    if (lo === hi) { lo -= 1; hi += 1; }
+    var iw = w - padL - padR, ih = h - padT - padB;
+    var X = function (i) { return padL + i / (pts.length - 1) * iw; };
+    var Y = function (v) { return padT + ih * (1 - (v - lo) / (hi - lo)); };
+    var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(p[1]).toFixed(1); }).join(' ');
+    var area = d + ' L' + X(pts.length - 1).toFixed(1) + ',' + (padT + ih) + ' L' + padL + ',' + (padT + ih) + ' Z';
+    var col = opt.color || 'var(--chae)';
+    var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + esc(opt.label || '추이') + '">';
+    [0, 0.5, 1].forEach(function (t) {
+      var y = padT + ih * t, v = hi - (hi - lo) * t;
+      s += '<line class="axis" x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '" opacity=".55"/>';
+      s += '<text class="tick" x="' + (padL - 7) + '" y="' + (y + 3) + '" text-anchor="end">' + n(Math.round(v)) + '</text>';
+    });
+    s += '<path d="' + area + '" fill="' + col + '" opacity=".10"/>';
+    s += '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
+    s += '<circle cx="' + X(pts.length - 1).toFixed(1) + '" cy="' + Y(vals[vals.length - 1]).toFixed(1) + '" r="3" fill="' + col + '"/>';
+    s += '<text class="tick" x="' + padL + '" y="' + (h - 8) + '">' + esc(pts[0][0].slice(5)) + '</text>';
+    s += '<text class="tick" x="' + (w - padR) + '" y="' + (h - 8) + '" text-anchor="end">' + esc(pts[pts.length - 1][0].slice(5)) + '</text>';
+    return s + '</svg>';
+  }
+
+  function divergingBar(rows, opt) {
+    opt = opt || {};
+    if (!rows.length) return '<div class="note">가격 데이터가 있는 품목이 없습니다.</div>';
+    var w = 460, rowH = 24, padL = 88, padR = 52, h = rows.length * rowH + 22;
+    var max = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.value); })) || 1;
+    var iw = w - padL - padR, mid = padL + iw / 2, half = iw / 2;
+    var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + esc(opt.label || '가격 등락') + '">';
+    s += '<line class="axis" x1="' + mid + '" y1="2" x2="' + mid + '" y2="' + (h - 18) + '"/>';
+    rows.forEach(function (r, i) {
+      var y = i * rowH + 5, len = Math.abs(r.value) / max * half;
+      var x = r.value >= 0 ? mid : mid - len;
+      s += '<text class="glabel" x="' + (padL - 8) + '" y="' + (y + 11) + '" text-anchor="end">' + esc(r.name) + '</text>';
+      s += '<rect x="' + x.toFixed(1) + '" y="' + y + '" width="' + Math.max(1.5, len).toFixed(1) + '" height="13" rx="2.5" fill="' + cvar(r.value) + '" opacity=".85"><title>' + esc(r.name) + ' · ' + pct(r.value) + (r.vol != null ? ' · 반입 ' + n(r.vol) + 't' : '') + '</title></rect>';
+      var tx = r.value >= 0 ? mid + len + 5 : mid - len - 5;
+      s += '<text class="gval" x="' + tx.toFixed(1) + '" y="' + (y + 10) + '" text-anchor="' + (r.value >= 0 ? 'start' : 'end') + '" fill="' + cvar(r.value) + '">' + pct(r.value) + '</text>';
+      if (r.item) s += '<rect x="0" y="' + y + '" width="' + w + '" height="' + (rowH - 2) + '" fill="transparent" class="hit" data-item="' + esc(r.item) + '" data-sector="' + esc(r.sector) + '"><title>' + esc(r.name) + ' 상세 보기</title></rect>';
+    });
+    s += '<text class="tick" x="' + (mid - 6) + '" y="' + (h - 5) + '" text-anchor="end">← 하락</text>';
+    s += '<text class="tick" x="' + (mid + 6) + '" y="' + (h - 5) + '">상승 →</text>';
+    return s + '</svg>';
+  }
+
+  // ---------- 뷰 ----------
+  function allItems() {
+    var out = [];
+    Object.keys(DATA.sectors).forEach(function (k) { out = out.concat(DATA.sectors[k]); });
+    return out;
+  }
+
+  function renderNav() {
+    var nav = $('nav');
+    var h = '';
+
+    if (state.level !== 'all') {
+      var upTo = state.level === 'item' ? esc(state.sector) : '전체';
+      h += '<button class="back" data-nav="up"><span>←</span> ' + upTo + '</button><span class="div"></span>';
+    }
+
+    h += '<button class="lvl' + (state.level === 'all' ? ' on' : '') + '" data-nav="all">전체</button>';
+    Object.keys(DATA.sectors).forEach(function (sec) {
+      var on = state.sector === sec;
+      var kls = sec === '청과' ? 'cheong' : sec === '채소' ? 'chae' : '';
+      h += '<button class="lvl ' + kls + (on ? ' on' : '') + '" data-nav="sector" data-sec="' + esc(sec) + '">' +
+        esc(sec) + '</button>';
+    });
+
+    if (state.item) {
+      h += '<span class="div"></span><span class="cur">' + esc(state.item) +
+        '<button class="x" data-nav="clear" title="품목 선택 해제">✕</button></span>';
+    }
+    h += '<span class="tip">' +
+      (state.level === 'item' ? '부문을 눌러 다른 품목을 고를 수 있습니다'
+        : state.level === 'sector' ? '부문을 눌러 바로 전환할 수 있습니다'
+        : '부문을 눌러 바로 들어갈 수 있습니다') + '</span>';
+
+    nav.innerHTML = h;
+
+    nav.querySelectorAll('[data-nav]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var act = b.getAttribute('data-nav');
+        if (act === 'all') state = { level: 'all', sector: null, item: null };
+        else if (act === 'sector') state = { level: 'sector', sector: b.getAttribute('data-sec'), item: null };
+        else if (act === 'clear') { state.level = 'sector'; state.item = null; }
+        else if (act === 'up') {
+          if (state.level === 'item') { state.level = 'sector'; state.item = null; }
+          else state = { level: 'all', sector: null, item: null };
+        }
+        render(); window.scrollTo(0, 0);
+      });
+    });
+  }
+
+  function viewAll() {
+    var items = allItems();
+    var total = items.reduce(function (a, b) { return a + (b.tot || 0); }, 0);
+    var prev = items.reduce(function (a, b) { return a + (b.prev || 0); }, 0);
+    var totPct = prev ? (total - prev) / prev * 100 : null;
+    var priced = items.filter(function (i) { return i.pricePct != null; });
+    // 3t짜리 품목의 +124%는 실무에서 노이즈다. 반입량 상위 품목 안에서만 급등락을 본다.
+    // 부문별로 뽑아야 한다 — 전체를 한 줄로 세우면 물량이 큰 채소가 자리를 다 차지해
+    // 청과가 통째로 빠진다.
+    var major = [];
+    Object.keys(DATA.sectors).forEach(function (k) {
+      major = major.concat(DATA.sectors[k].slice(0, MAJOR_PER_SECTOR)
+        .filter(function (i) { return i.pricePct != null; }));
+    });
+    var surge = major.filter(function (i) { return Math.abs(i.pricePct) >= 10; });
+
+    var h = '<div class="kpis">';
+    h += kpi('총 반입량', n(total) + 't', '전일 ' + n(prev) + 't · <span class="' + cls(totPct) + '">' + pct(totPct) + '</span>');
+    Object.keys(DATA.sectors).forEach(function (s) {
+      var it = DATA.sectors[s];
+      var t = it.reduce(function (a, b) { return a + (b.tot || 0); }, 0);
+      var p = it.reduce(function (a, b) { return a + (b.prev || 0); }, 0);
+      h += kpi(s + ' 반입량', n(t) + 't',
+        it.length + '품목 · <span class="' + cls(p ? (t - p) / p * 100 : null) + '">' + pct(p ? (t - p) / p * 100 : null) + '</span>',
+        s === '청과' ? 'acc-cheong' : 'acc-chae');
+    });
+    h += kpi('급등락 품목', surge.length + '건', '부문별 반입량 상위 ' + MAJOR_PER_SECTOR + '품목 중 ±10% 초과');
+    h += '</div>';
+
+    h += '<h2>부문별 반입량 TOP ' + DATA.topN + '</h2><div class="cards">';
+    Object.keys(DATA.sectors).forEach(function (s) {
+      var rows = DATA.sectors[s].slice(0, DATA.topN).map(function (i) {
+        return { name: i.item, value: i.tot, delta: i.volPct, item: i.item, sector: s,
+          color: s === '청과' ? 'var(--cheong)' : 'var(--chae)' };
+      });
+      h += '<div class="card click" data-sector="' + esc(s) + '"><h3>' + esc(s) + '</h3>' +
+challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클릭하면 부문 전체로') + barChart(rows, { unit: 't', label: s + ' 반입량 TOP' }) +
+        '<div class="note">' + esc(s) + ' 전체 보기 →</div></div>';
+    });
+    h += '</div>';
+
+    var dv = major.slice().sort(function (a, b) { return b.pricePct - a.pricePct; });
+    dv = dv.slice(0, 7).concat(dv.slice(-7)).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    h += '<h2>주요 품목 가격 등락</h2><div class="cards"><div class="card">' +
+      '<h3>전일대비 등락</h3>' + challenge('부문별 반입량 상위 ' + MAJOR_PER_SECTOR + '품목 중 상승·하락 양극단 · 막대에 마우스를 올리면 반입량이 나옵니다') +
+      divergingBar(dv.map(function (i) { return { name: i.item, value: i.pricePct, vol: i.tot, item: i.item, sector: i.sector }; }), { label: '주요 품목 전일대비 등락' }) + '</div>' +
+      '<div class="card"><h3>주요 품목 급등락</h3>' + challenge('부문별 반입량 상위 ' + MAJOR_PER_SECTOR + '품목 중 전일대비 변동률 절대값 기준 · 소물량 품목 제외') +
+      miniTable(major.slice().sort(function (a, b) { return Math.abs(b.pricePct) - Math.abs(a.pricePct); }).slice(0, 10)) + '</div></div>';
+    return h;
+  }
+
+  function challenge(t) { return '<div class="sub">' + esc(t) + '</div>'; }
+
+  function kpi(k, v, s, extra) {
+    return '<div class="kpi ' + (extra || '') + '"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + s + '</div></div>';
+  }
+
+  function miniTable(items) {
+    if (!items.length) return '<div class="note">해당 품목이 없습니다.</div>';
+    var h = '<div class="hint">👆 행을 클릭하면 품종별 상세로 들어갑니다</div>' +
+      '<table><thead><tr><th>품목</th><th>부문</th><th class="num">반입(t)</th><th class="num">가격 전일비</th><th></th></tr></thead><tbody>';
+    items.forEach(function (i) {
+      h += '<tr class="click" data-item="' + esc(i.item) + '" data-sector="' + esc(i.sector) + '"><td><span class="item-link">' + esc(i.item) +
+        '</span></td><td><span class="badge ' + esc(i.sector) + '">' + esc(i.sector) + '</span></td>' +
+        '<td class="num">' + n(i.tot) + '</td><td class="num strong ' + cls(i.pricePct) + '">' + pct(i.pricePct) +
+        '</td><td class="chev">›</td></tr>';
+    });
+    return h + '</tbody></table>';
+  }
+
+  function viewSector() {
+    var items = DATA.sectors[state.sector] || [];
+    var t = items.reduce(function (a, b) { return a + (b.tot || 0); }, 0);
+    var p = items.reduce(function (a, b) { return a + (b.prev || 0); }, 0);
+    var w = items.reduce(function (a, b) { return a + (b.week || 0); }, 0);
+
+    var h = '<div class="kpis">';
+    h += kpi('반입량', n(t) + 't', '전일 ' + n(p) + 't · <span class="' + cls(p ? (t - p) / p * 100 : null) + '">' + pct(p ? (t - p) / p * 100 : null) + '</span>');
+    h += kpi('전주 대비', pct(w ? (t - w) / w * 100 : null), '전주 ' + n(w) + 't');
+    h += kpi('품목 수', items.length + '개', '가격 확인 ' + items.filter(function (i) { return i.pricePct != null; }).length + '개');
+    h += '</div>';
+
+    var color = state.sector === '청과' ? 'var(--cheong)' : 'var(--chae)';
+    var rows = items.slice(0, DATA.topN).map(function (i) {
+      return { name: i.item, value: i.tot, delta: i.volPct, color: color, item: i.item, sector: i.sector };
+    });
+    h += '<h2>반입량 TOP ' + DATA.topN + '</h2><div class="cards"><div class="card"><h3>' + esc(state.sector) + ' 반입량</h3>' +
+      challenge('막대를 클릭하면 그 품목 상세로 · 옆 숫자는 전일대비 물량 증감') + barChart(rows, { unit: 't' }) + '</div>';
+
+    var sv = items.filter(function (i) { return i.pricePct != null; })
+      .sort(function (a, b) { return b.pricePct - a.pricePct; });
+    sv = sv.slice(0, 7).concat(sv.slice(-7)).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    h += '<div class="card"><h3>가격 등락</h3>' + challenge('막대를 클릭하면 그 품목 상세로 · 마우스를 올리면 반입량이 나옵니다') +
+      divergingBar(sv.map(function (i) { return { name: i.item, value: i.pricePct, vol: i.tot, item: i.item, sector: i.sector }; })) + '</div></div>';
+
+    h += '<h2>품목 전체</h2>';
+    h += '<div class="hint">👆 행을 클릭하면 그 품목의 품종별 상세로 들어갑니다</div>';
+    h += '<div class="searchbar">' +
+      '<input class="search" id="iq" type="search" autocomplete="off" placeholder="품목명으로 검색 (예: 복숭아, 오이)">' +
+      '<span class="hits" id="ihits"></span>' +
+      '<button type="button" class="clearq" id="iclear" hidden>지우기</button></div>';
+    h += '<div class="table-wrap"><table>' +
+      '<thead><tr><th>품목</th><th>대표 품종</th><th class="num">평균가</th><th class="num">단위단가</th>' +
+      '<th class="num">반입(t)</th><th class="num">전일</th><th class="num">물량 전일비</th>' +
+      '<th class="num">가격 전일비</th><th></th></tr></thead><tbody id="ibody">';
+    items.forEach(function (i) {
+      var up = i.unitPrice != null ? n(i.unitPrice) + '<span class="note"> 원/' + esc(i.unitBase || '') + '</span>' : '—';
+      h += '<tr class="click" data-item="' + esc(i.item) + '" data-sector="' + esc(i.sector) + '"' +
+        ' data-q="' + esc(((i.item || '') + ' ' + (i.repName || '')).toLowerCase()) + '">' +
+        '<td class="strong"><span class="item-link">' + esc(i.item) + '</span></td>' +
+        '<td>' + esc(i.repName || '—') + (i.repUnit ? ' <span class="note">' + esc(i.repUnit) + '</span>' : '') + '</td>' +
+        '<td class="num strong">' + n(i.repAvg) + '</td>' +
+        '<td class="num">' + up + '</td>' +
+        '<td class="num">' + n(i.tot) + '</td><td class="num">' + n(i.prev) + '</td>' +
+        '<td class="num ' + cls(i.volPct) + '">' + pct(i.volPct) + '</td>' +
+        '<td class="num strong ' + cls(i.pricePct) + '">' + pct(i.pricePct) + '</td>' +
+        '<td class="chev">›</td></tr>';
+    });
+    return h + '</tbody></table></div>';
+  }
+
+  function viewItem() {
+    var meta = allItems().filter(function (i) { return i.item === state.item; })[0] || {};
+    var price = DATA.prices[state.item];
+    var ser = DATA.series[state.item] || {};
+    var color = state.sector === '청과' ? 'var(--cheong)' : 'var(--chae)';
+
+    var h = '<div class="kpis">';
+    h += kpi('반입량', n(meta.tot) + 't', '전일 ' + n(meta.prev) + 't · <span class="' + cls(meta.volPct) + '">' + pct(meta.volPct) + '</span>');
+    h += kpi('가격 전일비', pct(meta.pricePct), '품종별 중앙값 · ' + (price ? price.nVariety : 0) + '품종');
+    if (price) h += kpi('대표 품종 평균가', n(price.repAvg) + '원', esc(price.repName) + ' · ' + esc(price.repUnit || ''));
+    h += kpi('전주 대비 물량', pct(meta.week ? (meta.tot - meta.week) / meta.week * 100 : null), '전주 ' + n(meta.week) + 't');
+    h += '</div>';
+
+    h += '<h2>추이</h2><div class="cards">';
+    h += '<div class="card"><h3>가격 추이</h3>' + challenge('대표 품종 ' + esc(ser.repNm || '—') + ' · 등급 상 평균가 (원)') +
+      lineChart(ser.price, { color: color, label: '가격 추이' }) + '</div>';
+    h += '<div class="card"><h3>반입량 추이</h3>' + challenge('일별 반입량 (톤)') +
+      lineChart(ser.volume, { color: 'var(--muted)', label: '반입량 추이' }) + '</div>';
+    h += '</div>';
+
+    if (price && price.varieties.length) {
+      h += '<h2>품종별 가격 · 등급 상</h2>';
+      h += '<div class="searchbar">' +
+        '<input class="search" id="vq" type="search" autocomplete="off" placeholder="품종명 또는 규격으로 검색 (예: 백도, 천도, 4kg)">' +
+        '<span class="hits" id="vhits"></span>' +
+        '<button type="button" class="clearq" id="vclear" hidden>지우기</button></div>';
+      h += '<div class="table-wrap"><table>' +
+        '<thead><tr><th>품종</th><th>단위</th><th class="num">평균가</th><th class="num">단위단가</th>' +
+        '<th class="num">최저</th><th class="num">최고</th>' +
+        '<th class="num">전일비</th><th>7일 전</th><th>1년 전</th></tr></thead><tbody id="vbody">';
+      price.varieties.forEach(function (v) {
+        var q = ((v.nm || '') + ' ' + (v.unit || '') + ' ' + (v.cd || '')).toLowerCase();
+        var up = v.up ? n(v.up.v) + '<span class="note"> 원/' + esc(v.up.b) + '</span>' : '—';
+        h += '<tr data-q="' + esc(q) + '"><td class="strong">' + esc(v.nm) + '</td><td class="note">' + esc(v.unit) + '</td>' +
+          '<td class="num strong">' + n(v.avg) + '</td><td class="num">' + up + '</td>' +
+          '<td class="num">' + n(v.low) + '</td><td class="num">' + n(v.max) + '</td>' +
+          '<td class="num ' + cls(v.pct) + '">' + pct(v.pct) + '</td>' +
+          '<td class="note">' + esc(v.j7 || '—') + '</td><td class="note">' + esc(v.j365 || '—') + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    } else {
+      h += '<div class="empty">이 품목은 해당일 경매 가격 데이터가 없습니다. 반입물량만 확인됩니다.</div>';
+    }
+    return h;
+  }
+
+  function render() {
+    renderNav();
+    var v = $('view');
+    v.innerHTML = state.level === 'all' ? viewAll() : state.level === 'sector' ? viewSector() : viewItem();
+    wireSearch();
+    v.querySelectorAll('[data-sector]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        var item = el.getAttribute('data-item');
+        state.sector = el.getAttribute('data-sector');
+        if (item) { state.item = item; state.level = 'item'; }
+        else { state.item = null; state.level = 'sector'; }
+        e.stopPropagation(); render(); window.scrollTo(0, 0);
+      });
+    });
+  }
+
+  function wireSearch() {
+    // 레벨2는 품목(iq/ibody), 레벨3은 품종(vq/vbody). 동작은 같다.
+    [['iq', 'ibody', 'ihits', 'iclear', '품목'],
+     ['vq', 'vbody', 'vhits', 'vclear', '품종']].forEach(function (cfg) {
+      var box = $(cfg[0]);
+      if (!box) return;
+      var body = $(cfg[1]), hits = $(cfg[2]), clear = $(cfg[3]), unit = cfg[4];
+      var rows = Array.prototype.slice.call(body.querySelectorAll('tr[data-q]'));
+      var none = null;
+
+      function apply() {
+        // 공백으로 나눈 토큰을 모두 포함하는 행만 남긴다 ("천도 10kg" 같은 조합 검색)
+        var terms = box.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        var shown = 0;
+        rows.forEach(function (tr) {
+          var ok = terms.every(function (t) { return (tr.getAttribute('data-q') || '').indexOf(t) > -1; });
+          tr.hidden = !ok;
+          if (ok) shown++;
+        });
+        hits.textContent = terms.length ? shown + ' / ' + rows.length + unit : rows.length + unit;
+        clear.hidden = !terms.length;
+
+        if (!shown) {
+          if (!none) {
+            none = document.createElement('tr');
+            none.innerHTML = '<td colspan="9" style="text-align:center;color:var(--muted);padding:22px">' +
+              '일치하는 ' + unit + '이 없습니다.</td>';
+            body.appendChild(none);
+          }
+          none.hidden = false;
+        } else if (none) { none.hidden = true; }
+      }
+
+      box.addEventListener('input', apply);
+      clear.addEventListener('click', function () { box.value = ''; apply(); box.focus(); });
+      apply();
+    });
+  }
+
+  function renderNews() {
+    var list = DATA.news || [];
+    var el = $('news');
+    if (!list.length) { el.innerHTML = ''; return; }
+    var span = DATA.newsSpan;
+    var h = '<h2>농산물 뉴스 · ' + (span ? '기준일 ±' + span + '일' : '최근 자료') + '</h2>';
+    if (span > 3) h += '<div class="note" style="margin:0 0 10px">±3일 내 게시물이 적어 ±' + span + '일로 넓혔습니다.</div>';
+    h += '<div class="newslist">';
+    list.slice(0, 12).forEach(function (a) {
+      h += '<a class="newsitem" href="' + esc(a.url) + '" target="_blank" rel="noopener">' +
+        '<span class="d">' + esc((a.posted || '').slice(5)) + '</span>' +
+        '<span class="t">' + esc(a.title) + '</span>' +
+        '<span class="b">' + esc(a.board) + '</span></a>';
+    });
+    el.innerHTML = h + '</div>';
+  }
+
+  $('meta').innerHTML = '물량 기준일 <b>' + esc(DATA.volumeDate || '—') + '</b> · 가격 기준일 <b>' +
+    esc(DATA.priceDate || '—') + '</b> · 갱신 ' + esc(DATA.generated) +
+    (DATA.volumeDate !== DATA.priceDate ? ' <span class="note">(가격은 경매 확정일 기준이라 하루 차이가 날 수 있습니다)</span>' : '');
+
+  renderNews();
+  render();
+})();
+</script>
+</body>
+</html>
