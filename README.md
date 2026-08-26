@@ -86,3 +86,19 @@ schtasks /query /tn "가락시세 대시보드" /fo LIST
 ```bash
 schtasks /delete /tn "가락시세 대시보드" /f
 ```
+
+## 배포 (Vercel)
+
+1. GitHub에서 이 저장소를 만든 뒤 최초 1회만 수동 푸시 (인증 팝업 완료용)
+   ```bash
+   git push -u origin main
+   ```
+2. Vercel에서 이 GitHub 저장소를 Import — 프레임워크 자동 감지, 별도 설정 불필요
+3. `vercel.json` 이 루트 URL에 `out/dashboard.html` 을 서빙
+
+이후에는 `run_daily.cmd` 가 매일 14:00에
+1) 데이터 수집 → 2) 대시보드 재생성 → 3) `data/prices.sqlite` 와 `out/dashboard.html` 을
+자동 커밋·푸시 → 4) Vercel이 자동 재배포합니다.
+
+**주의:** Git Credential Manager 인증이 살아있어야 자동 푸시가 됩니다.
+자격 만료 시 `git push` 를 한 번 수동 실행해 재인증하세요.

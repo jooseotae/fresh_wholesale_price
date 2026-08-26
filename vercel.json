@@ -2,6 +2,15 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/", "destination": "/out/dashboard.html" }
+    { "source": "/", "destination": "/out/dashboard.html" },
+    { "source": "/dashboard", "destination": "/out/dashboard.html" }
+  ],
+  "headers": [
+    {
+      "source": "/out/dashboard.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+      ]
+    }
   ]
 }

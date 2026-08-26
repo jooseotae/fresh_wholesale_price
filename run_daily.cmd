@@ -29,4 +29,29 @@ rem    still shows the last good data.
 if not "%RC_BIX5%"=="0"   echo [WARN] BIX5 collection failed - see logs\collect.log
 if not "%RC_LEGACY%"=="0" echo [WARN] legacy collection failed - see logs\collect.log
 if not "%RC_NEWS%"=="0"   echo [WARN] news collection failed - see logs\collect.log
+
+rem 5) Auto-commit and push so Vercel redeploys with today's data.
+rem    Skips if nothing changed. Non-fatal if git/network fails.
+rem    First-time push needs manual auth via Git Credential Manager.
+where git >nul 2>&1
+if errorlevel 1 goto :skip_git
+
+git diff --quiet HEAD -- data/prices.sqlite out/dashboard.html 2>nul
+if not errorlevel 1 (
+    echo [git] no data changes, skipping push
+    goto :skip_git
+)
+
+for /f "tokens=1-3 delims=- " %%a in ("%date%") do set TODAY=%%a-%%b-%%c
+git add data/prices.sqlite out/dashboard.html logs/collect.log 2>nul
+git commit -q -m "chore: daily data refresh %TODAY%" 2>nul
+if errorlevel 1 (
+    echo [git] commit skipped
+    goto :skip_git
+)
+
+git push -q origin main 2>>logs\collect.log
+if errorlevel 1 echo [WARN] git push failed - Vercel not redeployed. Check auth.
+
+:skip_git
 endlocal
