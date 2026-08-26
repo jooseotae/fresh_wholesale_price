@@ -19,6 +19,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "data" / "prices.sqlite"
 OUT_PATH = ROOT / "out" / "dashboard.html"
+# Vercel은 저장소 루트의 index.html 을 그대로 / 에 서빙한다.
+# rewrite 설정에 기대지 않는 편이 확실해서 같은 내용을 두 곳에 쓴다.
+INDEX_PATH = ROOT / "index.html"
 TEMPLATE = ROOT / "src" / "template.html"
 
 SERIES_DAYS = 30
@@ -290,9 +293,11 @@ def main() -> int:
     html = tpl.replace(marker, json.dumps(payload, ensure_ascii=False))
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(html, encoding="utf-8")
+    INDEX_PATH.write_text(html, encoding="utf-8")
 
     n_items = sum(len(v) for v in payload["sectors"].values())
     print(f"생성 완료: {OUT_PATH}")
+    print(f"          {INDEX_PATH}  (Vercel 루트용)")
     print(f"  물량 기준일 {payload['volumeDate']} / 가격 기준일 {payload['priceDate']}")
     print(f"  부문 {len(payload['sectors'])}개, 품목 {n_items}개, 대표품목 가격 {len(payload['prices'])}종")
 
