@@ -199,10 +199,11 @@ def load_series(conn: sqlite3.Connection, rptv_list: list[str]) -> dict[str, dic
     return out
 
 
-def load_news(conn: sqlite3.Connection, ref: str | None, span: int = 3) -> tuple[list[dict], int]:
-    """기준일 ±span일 이내의 게시물.
+def load_news(conn: sqlite3.Connection, ref: str | None, span: int = 5) -> tuple[list[dict], int]:
+    """기준일로부터 과거 span일 이내의 게시물 (D-span ~ D).
 
-    게시물이 매일 올라오지 않으므로 ±3일이 너무 얇으면 ±7일까지 넓히고,
+    앞으로 나온 글은 있을 수 없으므로 과거 방향으로만 본다.
+    게시물이 매일 올라오지 않아 D-5가 너무 얇으면 D-10, D-20까지 넓히고,
     넓혔다는 사실을 대시보드에 표시한다.
     """
     def window(days: int) -> list[dict]:
@@ -210,15 +211,14 @@ def load_news(conn: sqlite3.Connection, ref: str | None, span: int = 3) -> tuple
         rows = conn.execute(
             """SELECT posted, board, title, url FROM news
                WHERE posted BETWEEN ? AND ? ORDER BY posted DESC, atc_sn DESC""",
-            ((base - dt.timedelta(days=days)).isoformat(),
-             (base + dt.timedelta(days=days)).isoformat()),
+            ((base - dt.timedelta(days=days)).isoformat(), base.isoformat()),
         ).fetchall()
         return [{"posted": a, "board": b, "title": c, "url": d} for a, b, c, d in rows]
 
     if ref:
-        for days in (span, 7, 14):
+        for days in (span, 10, 20):
             rows = window(days)
-            if len(rows) >= 4 or (rows and days == 14):
+            if len(rows) >= 4 or (rows and days == 20):
                 return rows, days
 
     rows = conn.execute(
@@ -268,6 +268,7 @@ def build_payload(conn: sqlite3.Connection) -> dict:
         "series": load_series(conn, sorted(need)),
         "news": news_rows,
         "newsSpan": news_span,
+        "newsSpanLabel": "D-" + str(news_span) if news_span else "최근",
         "topN": TOP_N,
     }
 

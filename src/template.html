@@ -324,6 +324,14 @@ var DATA = /*__DATA__*/ null;
     h += kpi('급등락 품목', surge.length + '건', '부문별 반입량 상위 ' + MAJOR_PER_SECTOR + '품목 중 ±10% 초과');
     h += '</div>';
 
+    var dv = major.slice().sort(function (a, b) { return b.pricePct - a.pricePct; });
+    dv = dv.slice(0, 7).concat(dv.slice(-7)).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    h += '<h2>주요 품목 가격 등락</h2><div class="cards"><div class="card">' +
+      '<h3>전일대비 등락</h3>' + challenge('부문별 반입량 상위 ' + MAJOR_PER_SECTOR + '품목 중 상승·하락 양극단 · 막대에 마우스를 올리면 반입량이 나옵니다') +
+      divergingBar(dv.map(function (i) { return { name: i.item, value: i.pricePct, vol: i.tot, item: i.item, sector: i.sector }; }), { label: '주요 품목 전일대비 등락' }) + '</div>' +
+      '<div class="card"><h3>주요 품목 급등락</h3>' + challenge('부문별 반입량 상위 ' + MAJOR_PER_SECTOR + '품목 중 전일대비 변동률 절대값 기준 · 소물량 품목 제외') +
+      miniTable(major.slice().sort(function (a, b) { return Math.abs(b.pricePct) - Math.abs(a.pricePct); }).slice(0, 10)) + '</div></div>';
+
     h += '<h2>부문별 반입량 TOP ' + DATA.topN + '</h2><div class="cards">';
     Object.keys(DATA.sectors).forEach(function (s) {
       var rows = DATA.sectors[s].slice(0, DATA.topN).map(function (i) {
@@ -335,14 +343,6 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
         '<div class="note">' + esc(s) + ' 전체 보기 →</div></div>';
     });
     h += '</div>';
-
-    var dv = major.slice().sort(function (a, b) { return b.pricePct - a.pricePct; });
-    dv = dv.slice(0, 7).concat(dv.slice(-7)).filter(function (x, i, a) { return a.indexOf(x) === i; });
-    h += '<h2>주요 품목 가격 등락</h2><div class="cards"><div class="card">' +
-      '<h3>전일대비 등락</h3>' + challenge('부문별 반입량 상위 ' + MAJOR_PER_SECTOR + '품목 중 상승·하락 양극단 · 막대에 마우스를 올리면 반입량이 나옵니다') +
-      divergingBar(dv.map(function (i) { return { name: i.item, value: i.pricePct, vol: i.tot, item: i.item, sector: i.sector }; }), { label: '주요 품목 전일대비 등락' }) + '</div>' +
-      '<div class="card"><h3>주요 품목 급등락</h3>' + challenge('부문별 반입량 상위 ' + MAJOR_PER_SECTOR + '품목 중 전일대비 변동률 절대값 기준 · 소물량 품목 제외') +
-      miniTable(major.slice().sort(function (a, b) { return Math.abs(b.pricePct) - Math.abs(a.pricePct); }).slice(0, 10)) + '</div></div>';
     return h;
   }
 
@@ -381,14 +381,15 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     var rows = items.slice(0, DATA.topN).map(function (i) {
       return { name: i.item, value: i.tot, delta: i.volPct, color: color, item: i.item, sector: i.sector };
     });
-    h += '<h2>반입량 TOP ' + DATA.topN + '</h2><div class="cards"><div class="card"><h3>' + esc(state.sector) + ' 반입량</h3>' +
-      challenge('막대를 클릭하면 그 품목 상세로 · 옆 숫자는 전일대비 물량 증감') + barChart(rows, { unit: 't' }) + '</div>';
-
     var sv = items.filter(function (i) { return i.pricePct != null; })
       .sort(function (a, b) { return b.pricePct - a.pricePct; });
     sv = sv.slice(0, 7).concat(sv.slice(-7)).filter(function (x, i, a) { return a.indexOf(x) === i; });
-    h += '<div class="card"><h3>가격 등락</h3>' + challenge('막대를 클릭하면 그 품목 상세로 · 마우스를 올리면 반입량이 나옵니다') +
-      divergingBar(sv.map(function (i) { return { name: i.item, value: i.pricePct, vol: i.tot, item: i.item, sector: i.sector }; })) + '</div></div>';
+    h += '<h2>가격 등락 · 반입량 TOP ' + DATA.topN + '</h2><div class="cards">' +
+      '<div class="card"><h3>전일대비 등락</h3>' + challenge('막대를 클릭하면 그 품목 상세로 · 마우스를 올리면 반입량이 나옵니다') +
+      divergingBar(sv.map(function (i) { return { name: i.item, value: i.pricePct, vol: i.tot, item: i.item, sector: i.sector }; })) + '</div>';
+
+    h += '<div class="card"><h3>' + esc(state.sector) + ' 반입량</h3>' +
+      challenge('막대를 클릭하면 그 품목 상세로 · 옆 숫자는 전일대비 물량 증감') + barChart(rows, { unit: 't' }) + '</div></div>';
 
     h += '<h2>품목 전체</h2>';
     h += '<div class="hint">👆 행을 클릭하면 그 품목의 품종별 상세로 들어갑니다</div>';
@@ -522,8 +523,9 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     var el = $('news');
     if (!list.length) { el.innerHTML = ''; return; }
     var span = DATA.newsSpan;
-    var h = '<h2 style="font-size:14.5px;color:var(--chae);letter-spacing:.4px">📰 농산물 뉴스 · ' + (span ? '기준일 ±' + span + '일' : '최근 자료') + '</h2>';
-    if (span > 3) h += '<div class="note" style="margin:0 0 10px">±3일 내 게시물이 적어 ±' + span + '일로 넓혔습니다.</div>';
+    var h = '<h2 style="font-size:14.5px;color:var(--chae);letter-spacing:.4px">📰 농산물 뉴스 · ' +
+      (span ? '최근 ' + span + '일 (D-' + span + ' ~ D)' : '최근 자료') + '</h2>';
+    if (span > 5) h += '<div class="note" style="margin:0 0 10px">최근 5일 내 게시물이 적어 ' + span + '일로 넓혔습니다.</div>';
     h += '<div class="newslist">';
     list.slice(0, 12).forEach(function (a) {
       h += '<a class="newsitem" href="' + esc(a.url) + '" target="_blank" rel="noopener">' +
