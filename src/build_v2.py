@@ -25,6 +25,7 @@ INDEX_PATH = ROOT / "index.html"
 TEMPLATE = ROOT / "src" / "template.html"
 
 SERIES_DAYS = 30
+GRADE_REF = "1"   # 요약 지표의 기준 등급 (0특 1상 2보통 3하)
 TOP_N = 10
 
 # "14,906(98.6%)" → 전일가 14906, 비율 98.6
@@ -136,9 +137,12 @@ def load_prices(conn: sqlite3.Connection, date: str) -> dict[str, dict]:
     품종마다 단위(4kg상자/10kg망대…)가 달라 절대가 평균은 의미가 없다.
     반면 전일대비 비율은 단위와 무관하므로 대표품목 단위로 합칠 수 있다.
     """
+    # 4등급(특·상·보통·하)을 모두 읽는다. 요약 지표는 기준 등급인 '상'으로 내되,
+    # 품종별 표에서는 등급을 골라 볼 수 있게 전부 실어 보낸다.
     rows = conn.execute(
-        """SELECT rptv_nm, item_cd, item_nm, unit, mi_p, av_p, ma_p, pav_rate, j7_rate, j365_rate, unit_qty
-           FROM price_detail WHERE trade_date=? AND grade_cd='1' AND av_p > 0""",
+        """SELECT rptv_nm, item_cd, item_nm, unit, mi_p, av_p, ma_p, pav_rate, j7_rate, j365_rate,
+                  unit_qty, grade_cd, grade_nm
+           FROM price_detail WHERE trade_date=? AND av_p > 0""",
         (date,),
     ).fetchall()
 
@@ -147,7 +151,8 @@ def load_prices(conn: sqlite3.Connection, date: str) -> dict[str, dict]:
         grouped.setdefault(r[0], []).append(r)
 
     out: dict[str, dict] = {}
-    for rptv, items in grouped.items():
+    for rptv, all_rows in grouped.items():
+        items = [r for r in all_rows if r[11] == GRADE_REF] or all_rows
         pcts = [p for p in (parse_rate(i[7], i[5]) for i in items) if p is not None]
         rep = rep_variety(conn, rptv)
         rep_row = next((i for i in items if rep and i[1] == rep[0]), items[0])
@@ -159,14 +164,16 @@ def load_prices(conn: sqlite3.Connection, date: str) -> dict[str, dict]:
             "repName": rep_row[2], "repUnit": rep_row[3],
             "repLow": rep_row[4], "repAvg": rep_row[5], "repMax": rep_row[6],
             "unitPrice": up[0] if up else None, "unitBase": up[1] if up else None,
+            "nGrade": len({r[11] for r in all_rows}),
             "varieties": sorted(
                 [
                     {"cd": i[1], "nm": i[2], "unit": i[3], "low": i[4], "avg": i[5],
                      "max": i[6], "pct": parse_rate(i[7], i[5]), "j7": i[8], "j365": i[9],
+                     "g": i[11], "gn": i[12],
                      "up": (lambda u: {"v": u[0], "b": u[1]} if u else None)(unit_price(i[5], i[3], i[10]))}
-                    for i in items
+                    for i in all_rows
                 ],
-                key=lambda x: -(x["avg"] or 0),
+                key=lambda x: (x["g"], -(x["avg"] or 0)),
             ),
         }
     return out

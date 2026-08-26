@@ -116,6 +116,16 @@ tbody tr.click:hover{background:var(--soft)}
 .strong{font-weight:650}
 .badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid currentColor}
 .badge.청과{color:var(--cheong)}.badge.채소{color:var(--chae)}.badge.양곡{color:var(--yang)}
+.gradebar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:11px}
+.gradebar .lab{font-size:12px;font-weight:650;color:var(--muted);margin-right:3px}
+.gchip{font:inherit;font-size:12.5px;font-weight:600;padding:5px 13px;border-radius:20px;cursor:pointer;
+  border:1px solid var(--line);background:transparent;color:var(--muted);transition:all .12s}
+.gchip:hover{border-color:var(--muted);color:var(--ink)}
+.gchip.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.gchip .n{opacity:.6;font-size:11px;margin-left:3px}
+td.gcell{white-space:nowrap}
+.gtag{display:inline-block;min-width:34px;text-align:center;padding:1px 7px;border-radius:20px;
+  font-size:11px;font-weight:700;border:1px solid currentColor}
 .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .search{font:inherit;font-size:13px;padding:7px 12px;border-radius:8px;border:1px solid var(--line);
   background:var(--card);color:var(--ink);min-width:260px;flex:0 1 340px}
@@ -164,7 +174,14 @@ var DATA = /*__DATA__*/ null;
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var state = { level: 'all', sector: null, item: null };
-  var MAJOR_PER_SECTOR = 20;   // 급등락 집계에 넣을 부문별 반입량 상위 품목 수
+  var MAJOR_PER_SECTOR = 20;
+  var GRADES = [{ cd: '0', nm: '특' }, { cd: '1', nm: '상' }, { cd: '2', nm: '보통' }, { cd: '3', nm: '하' }];
+  var GRADE_DEFAULT = '1';          // 기본은 '상' — 요약 지표의 기준 등급과 맞춘다
+  var gradeSel = GRADE_DEFAULT;
+  function gradeColor(g) {
+    return g === '0' ? 'var(--cheong)' : g === '1' ? 'var(--chae)'
+         : g === '2' ? 'var(--muted)' : 'var(--down)';
+  }   // 급등락 집계에 넣을 부문별 반입량 상위 품목 수
 
   // ---------- 포맷 ----------
   function n(v) { return v == null ? '—' : v.toLocaleString(); }
@@ -438,19 +455,32 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     h += '</div>';
 
     if (price && price.varieties.length) {
-      h += '<h2>품종별 가격 · 등급 상</h2>';
+      var gcount = {};
+      price.varieties.forEach(function (v) { gcount[v.g] = (gcount[v.g] || 0) + 1; });
+      h += '<h2>품종별 가격 · 전 등급</h2>';
+      h += '<div class="gradebar"><span class="lab">등급</span>';
+      GRADES.forEach(function (g) {
+        if (!gcount[g.cd]) return;
+        h += '<button type="button" class="gchip" data-g="' + g.cd + '">' + g.nm +
+          '<span class="n">' + gcount[g.cd] + '</span></button>';
+      });
+      h += '<button type="button" class="gchip" data-g="all">전체<span class="n">' +
+        price.varieties.length + '</span></button></div>';
       h += '<div class="searchbar">' +
         '<input class="search" id="vq" type="search" autocomplete="off" placeholder="품종명 또는 규격으로 검색 (예: 백도, 천도, 4kg)">' +
         '<span class="hits" id="vhits"></span>' +
         '<button type="button" class="clearq" id="vclear" hidden>지우기</button></div>';
       h += '<div class="table-wrap"><table>' +
-        '<thead><tr><th>품종</th><th>단위</th><th class="num">평균가</th><th class="num">단위단가</th>' +
+        '<thead><tr><th>품종</th><th>등급</th><th>단위</th><th class="num">평균가</th><th class="num">단위단가</th>' +
         '<th class="num">최저</th><th class="num">최고</th>' +
         '<th class="num">전일비</th><th>7일 전</th><th>1년 전</th></tr></thead><tbody id="vbody">';
       price.varieties.forEach(function (v) {
-        var q = ((v.nm || '') + ' ' + (v.unit || '') + ' ' + (v.cd || '')).toLowerCase();
+        var q = ((v.nm || '') + ' ' + (v.unit || '') + ' ' + (v.cd || '') + ' ' + (v.gn || '')).toLowerCase();
         var up = v.up ? n(v.up.v) + '<span class="note"> 원/' + esc(v.up.b) + '</span>' : '—';
-        h += '<tr data-q="' + esc(q) + '"><td class="strong">' + esc(v.nm) + '</td><td class="note">' + esc(v.unit) + '</td>' +
+        h += '<tr data-q="' + esc(q) + '" data-g="' + esc(v.g) + '">' +
+          '<td class="strong">' + esc(v.nm) + '</td>' +
+          '<td class="gcell"><span class="gtag" style="color:' + gradeColor(v.g) + '">' + esc(v.gn) + '</span></td>' +
+          '<td class="note">' + esc(v.unit) + '</td>' +
           '<td class="num strong">' + n(v.avg) + '</td><td class="num">' + up + '</td>' +
           '<td class="num">' + n(v.low) + '</td><td class="num">' + n(v.max) + '</td>' +
           '<td class="num ' + cls(v.pct) + '">' + pct(v.pct) + '</td>' +
@@ -494,7 +524,10 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
         var terms = box.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
         var shown = 0;
         rows.forEach(function (tr) {
-          var ok = terms.every(function (t) { return (tr.getAttribute('data-q') || '').indexOf(t) > -1; });
+          var g = tr.getAttribute('data-g');
+          // 등급 칩은 품종 표(vbody)에만 있다. 품목 표(ibody)에는 data-g가 없다.
+          var gOk = (g == null) || gradeSel === 'all' || g === gradeSel;
+          var ok = gOk && terms.every(function (t) { return (tr.getAttribute('data-q') || '').indexOf(t) > -1; });
           tr.hidden = !ok;
           if (ok) shown++;
         });
@@ -514,6 +547,27 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
 
       box.addEventListener('input', apply);
       clear.addEventListener('click', function () { box.value = ''; apply(); box.focus(); });
+
+      // 등급 칩 (품종 표에만 존재)
+      var chips = Array.prototype.slice.call(document.querySelectorAll('.gchip'));
+      if (chips.length && cfg[1] === 'vbody') {
+        // 현재 선택된 등급이 이 품목에 없으면 가장 가까운 등급으로 되돌린다
+        var avail = {};
+        rows.forEach(function (tr) { avail[tr.getAttribute('data-g')] = 1; });
+        if (gradeSel !== 'all' && !avail[gradeSel]) gradeSel = avail[GRADE_DEFAULT] ? GRADE_DEFAULT : 'all';
+
+        function paint() {
+          chips.forEach(function (c) { c.classList.toggle('on', c.getAttribute('data-g') === gradeSel); });
+        }
+        chips.forEach(function (c) {
+          c.addEventListener('click', function () {
+            gradeSel = c.getAttribute('data-g');
+            paint(); apply();
+          });
+        });
+        paint();
+      }
+
       apply();
     });
   }
