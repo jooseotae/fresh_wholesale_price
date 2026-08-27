@@ -475,6 +475,38 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
       h += '</tbody></table></div>';
     }
 
+    var regs = (DATA.regions || {})[state.item] || [];
+    if (regs.length) {
+      h += '<h2>산지별 가격</h2>';
+      h += '<div class="note" style="margin:0 0 10px">품종·규격마다 상위 5개 산지까지 나옵니다. ' +
+        '같은 품목도 산지에 따라 단가가 크게 갈립니다. 규격 안에서 싼 산지가 위로 옵니다.</div>';
+      h += '<div class="table-wrap"><table>' +
+        '<thead><tr><th>품종</th><th>규격</th><th>산지</th>' +
+        '<th class="num">평균가</th><th class="num">최저</th><th class="num">최고</th>' +
+        '<th class="num">최저산지 대비</th></tr></thead><tbody>';
+      // 품종+규격 묶음의 최저 평균가를 기준으로 몇 % 비싼지 보여준다
+      var base = {};
+      regs.forEach(function (g) {
+        var k = g.nm + '|' + g.unit;
+        if (base[k] == null || g.avg < base[k]) base[k] = g.avg;
+      });
+      var prevKey = null;
+      regs.forEach(function (g) {
+        var k = g.nm + '|' + g.unit;
+        var gap = base[k] ? (g.avg - base[k]) / base[k] * 100 : null;
+        var newGroup = k !== prevKey; prevKey = k;
+        h += '<tr' + (newGroup ? ' style="border-top:2px solid var(--line)"' : '') + '>' +
+          '<td class="strong">' + (newGroup ? esc(g.nm) : '') + '</td>' +
+          '<td class="note">' + (newGroup ? esc(g.unit) : '') + '</td>' +
+          '<td>' + esc(g.region) + '</td>' +
+          '<td class="num strong">' + n(g.avg) + '</td>' +
+          '<td class="num">' + n(g.low) + '</td><td class="num">' + n(g.max) + '</td>' +
+          '<td class="num ' + (gap > 0.05 ? 'up' : 'flat') + '">' +
+            (gap == null ? '—' : gap < 0.05 ? '기준' : '+' + gap.toFixed(1) + '%') + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+
     if (price && price.varieties.length) {
       var gcount = {};
       price.varieties.forEach(function (v) { gcount[v.g] = (gcount[v.g] || 0) + 1; });

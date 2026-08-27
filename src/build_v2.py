@@ -207,6 +207,28 @@ def load_units(conn: sqlite3.Connection, date: str) -> dict[str, list[dict]]:
     return out
 
 
+def load_regions(conn: sqlite3.Connection, date: str) -> dict[str, list[dict]]:
+    """대표품목별 산지 가격. 소스가 품종·규격당 상위 5개 산지만 준다.
+
+    같은 품목도 산지에 따라 단가가 크게 갈려(배추 정선 4,036 / 해남 9,804)
+    매입처 판단에 쓸 수 있다. 평균가 오름차순으로 정렬해 싼 산지가 위로 온다.
+    """
+    rows = conn.execute(
+        """SELECT d.rptv_nm, r.item_nm, r.unit, r.region, r.low_p, r.avg_p, r.max_p
+           FROM price_region r
+           JOIN (SELECT DISTINCT item_cd, rptv_nm FROM price_detail WHERE trade_date=?) d
+             ON d.item_cd = r.item_cd
+           WHERE r.trade_date=? AND r.avg_p > 0
+           ORDER BY d.rptv_nm, r.item_nm, r.unit, r.avg_p""",
+        (date, date),
+    ).fetchall()
+    out: dict[str, list[dict]] = {}
+    for rptv, nm, unit, region, lo, av, mx in rows:
+        out.setdefault(rptv, []).append(
+            {"nm": nm, "unit": unit, "region": region, "low": lo, "avg": av, "max": mx})
+    return out
+
+
 def load_series(conn: sqlite3.Connection, rptv_list: list[str]) -> dict[str, dict]:
     """대표품목별 가격·물량 시계열. 가격은 대표 품종의 평균가를 쓴다."""
     out: dict[str, dict] = {}
@@ -302,6 +324,7 @@ def build_payload(conn: sqlite3.Connection) -> dict:
         "prices": prices,
         "series": load_series(conn, sorted(need)),
         "units": load_units(conn, pdate) if pdate else {},
+        "regions": load_regions(conn, pdate) if pdate else {},
         "news": news_rows,
         "newsSpan": news_span,
         "newsSpanLabel": "D-" + str(news_span) if news_span else "최근",

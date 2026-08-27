@@ -1,4 +1,4 @@
-"""규격(단위)별 경락가격 수집 — 품목별 세부 경락정보.
+"""규격(단위)별 + 산지별 경락가격 수집 — 품목별 세부 경락정보.
 
 기존 collect_bix5 의 '품목별가격'은 품종당 대표 규격 하나만 준다.
 이 소스는 같은 품종이라도 규격별로 나뉜다 (가지 5kg상자 / 8kg상자 등 47품종).
@@ -7,9 +7,10 @@
 한계: 전 품목 일괄 조회가 안 된다. 품종×규격 조합마다 개별 요청이 필요해
 271회를 돌린다. 세션은 하나만 열어 재사용한다.
 
-    python src/collect_unit.py                  # 오늘
+    python src/collect_unit.py                  # 오늘 (규격별 + 산지별)
     python src/collect_unit.py --date 20260826
     python src/collect_unit.py --limit 10       # 소량 시험
+    python src/collect_unit.py --no-region      # 규격별만 (절반 시간)
 """
 
 import argparse
@@ -41,6 +42,9 @@ SHARE_AVG = "4ee3e775b0d8399aa0c010f4d5eb28d6"   # 품목 평균가 (규격별)
 DS_AVG = "40b1536a3620f5559aee46dea7493b69"     # 최고/최저/평균 + 전일 + 전년
 DS_GRADE = "463f86bb3474d27fb54ce6ee3b2b0bd1"   # 등급별 평균가
 
+SHARE_REGION = "42d1bbeb088352899f4258d5bca0adca"   # 지역별(산지) 가격
+DS_REGION = "4d06530096924d3fb22266885bc31487"      # 산지명이 열로 오는 피벗
+
 RETRIES, RETRY_WAIT, PAUSE = 3, 4, 0.25
 
 SCHEMA = """
@@ -58,6 +62,19 @@ CREATE TABLE IF NOT EXISTS price_unit (
 );
 CREATE INDEX IF NOT EXISTS ix_pu_date ON price_unit (trade_date);
 CREATE INDEX IF NOT EXISTS ix_pu_item ON price_unit (item_cd, trade_date);
+
+CREATE TABLE IF NOT EXISTS price_region (
+  trade_date TEXT NOT NULL,
+  item_cd    TEXT NOT NULL,
+  unit       TEXT NOT NULL,
+  region     TEXT NOT NULL,      -- 전남 해남군
+  item_nm    TEXT,
+  low_p INTEGER, avg_p INTEGER, max_p INTEGER,
+  collected_at TEXT,
+  PRIMARY KEY (trade_date, item_cd, unit, region)
+);
+CREATE INDEX IF NOT EXISTS ix_pr_date ON price_region (trade_date);
+CREATE INDEX IF NOT EXISTS ix_pr_item ON price_region (item_cd, trade_date);
 """
 
 _NUM = re.compile(r"-?[\d,]+\.?\d*")
@@ -140,10 +157,34 @@ def parse_avg(rows: list[dict]) -> dict | None:
     }
 
 
+def parse_region(rows: list[dict]) -> list[dict]:
+    """산지명이 열(COL2~COL6)로 오는 피벗을 산지당 한 행으로 편다.
+
+    COL1 이 '가격'인 행에 산지명이, '최고가/최저가/평균가' 행에 값이 들어 있다.
+    한 번에 최대 5개 산지만 온다 (소스 자체의 제한).
+    """
+    head = next((r for r in rows if (r.get("COL1") or "").strip() == "가격"), None)
+    if not head:
+        return []
+    vals = {(r.get("COL1") or "").strip(): r for r in rows}
+    out = []
+    for col in ("COL2", "COL3", "COL4", "COL5", "COL6"):
+        region = (head.get(col) or "").strip()
+        if not region:
+            continue
+        avg = num(vals.get("평균가", {}).get(col))
+        if avg is None:
+            continue
+        out.append({"region": region, "low_p": num(vals.get("최저가", {}).get(col)),
+                    "avg_p": avg, "max_p": num(vals.get("최고가", {}).get(col))})
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="규격별 경락가격 수집")
     ap.add_argument("--date", help="YYYYMMDD (기본: 오늘)")
     ap.add_argument("--limit", type=int, help="앞에서 N개만 (시험용)")
+    ap.add_argument("--no-region", action="store_true", help="산지별을 건너뛴다")
     args = ap.parse_args()
 
     setup_logging()
@@ -158,13 +199,14 @@ def main() -> int:
     seed = {"mrktDiv": "1", "startDate": date_str, "endDate": date_str, "handlClssCd": "2",
             "selectedItmCd": "", "selectedRptvItmCd": "", "selectedItmNm": "", "unitQty": ""}
     sess = Session(SHARE_AVG, seed)
+    sess_reg = None if args.no_region else Session(SHARE_REGION, seed)
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.executescript(SCHEMA)
     now = dt.datetime.now().isoformat(timespec="seconds")
 
-    saved = empty = failed = 0
+    saved = empty = failed = reg_saved = 0
     t0 = time.time()
     for i, it in enumerate(items, 1):
         cd, unit, uq = str(it["itmCd"]), it["unit"], str(it.get("unitQty") or "")
@@ -203,6 +245,25 @@ def main() -> int:
                  rec["prev_avg"], rec["yoy_avg"], rec["prev_pct"], rec["yoy_pct"], now))
             saved += 1
 
+        # 산지별 — 같은 파라미터로 다른 데이터소스를 한 번 더 부른다
+        if sess_reg is not None:
+            try:
+                regs = parse_region(sess_reg.query(DS_REGION, p))
+            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
+                regs = []
+            if regs:
+                conn.executemany(
+                    """INSERT INTO price_region
+                         (trade_date,item_cd,unit,region,item_nm,low_p,avg_p,max_p,collected_at)
+                       VALUES (?,?,?,?,?,?,?,?,?)
+                       ON CONFLICT (trade_date,item_cd,unit,region) DO UPDATE SET
+                         item_nm=excluded.item_nm, low_p=excluded.low_p,
+                         avg_p=excluded.avg_p, max_p=excluded.max_p,
+                         collected_at=excluded.collected_at""",
+                    [(trade_date, cd, unit, g["region"], it.get("itmNm"),
+                      g["low_p"], g["avg_p"], g["max_p"], now) for g in regs])
+                reg_saved += len(regs)
+
         if i % 40 == 0:
             conn.commit()
             logging.info("진행 %d/%d (%.0f초)", i, len(items), time.time() - t0)
@@ -210,7 +271,8 @@ def main() -> int:
 
     conn.commit()
     conn.close()
-    logging.info("완료: 저장 %d / 빈값 %d / 실패 %d (%.0f초)", saved, empty, failed, time.time() - t0)
+    logging.info("완료: 규격 %d / 산지 %d / 빈값 %d / 실패 %d (%.0f초)",
+                 saved, reg_saved, empty, failed, time.time() - t0)
     return 1 if saved == 0 else 0
 
 
