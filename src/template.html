@@ -32,10 +32,12 @@ h1{font-size:29px;font-weight:750;margin:0 0 7px;letter-spacing:-.7px;line-heigh
 @media (max-width:640px){.bigback{width:100%;justify-content:center;margin-top:4px}}
 /* 기준일 — 언제 자료인지가 판단의 전제라 눈에 띄게 둔다.
    노란 바탕 + 검정 글씨는 다크모드에서도 그대로 유지한다. */
-.meta{display:inline-block;background:rgba(255,216,77,.26);color:#141414;font-size:16.5px;font-weight:650;
+.meta{display:inline-block;background:rgba(255,216,77,.26);color:#141414;font-size:15px;font-weight:650;
   padding:10px 18px;border-radius:9px;margin-bottom:22px;border:1px solid rgba(224,184,0,.4);
-  letter-spacing:-.1px;line-height:1.45}
-.meta b{color:#000;font-weight:800;font-size:17.5px}
+  letter-spacing:-.1px;line-height:1.45;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.meta b{color:#000;font-weight:800;font-size:16px}
+.meta-sep{color:#7a6300;margin:0 4px}
+@media (max-width:900px){.meta{white-space:normal}}
 .meta .note{color:#5a4a00;font-size:14px}
 /* 다크모드에선 배경이 어두워 검정 글씨가 안 읽힌다. 노란 톤을 유지한 밝은 글씨로. */
 @media (prefers-color-scheme:dark){
@@ -732,10 +734,13 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
 
   var upd = DATA.updated || {};
   var updHtml = '';
-  if (upd['채소']) updHtml += '<span style="margin-right:14px">채소 갱신 <b>' + esc(upd['채소'].slice(5)) + '</b></span>';
-  if (upd['청과']) updHtml += '<span>청과 갱신 <b>' + esc(upd['청과'].slice(5)) + '</b></span>';
+  var parts = [];
+  if (upd['채소']) parts.push('채소 갱신 <b>' + esc(upd['채소'].slice(5)) + '</b>');
+  if (upd['청과']) parts.push('청과 갱신 <b>' + esc(upd['청과'].slice(5)) + '</b>');
+  updHtml = parts.join(' <span class="meta-sep">·</span> ');
   if (!updHtml) updHtml = '갱신 ' + esc(DATA.generated);
-  $('meta').innerHTML = '기준일 <b>' + esc(DATA.priceDate || DATA.volumeDate || '—') + '</b><br>' + updHtml;
+  $('meta').innerHTML = '기준일 <b>' + esc(DATA.priceDate || DATA.volumeDate || '—') + '</b>' +
+    ' <span class="meta-sep">·</span> ' + updHtml;
 
   $('bigback').addEventListener('click', function () {
     // 히스토리를 소비해 브라우저 뒤로가기와 동작을 맞춘다

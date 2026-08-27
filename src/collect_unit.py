@@ -247,7 +247,12 @@ def main() -> int:
                      low_p=excluded.low_p, avg_p=excluded.avg_p, max_p=excluded.max_p,
                      prev_avg=excluded.prev_avg, yoy_avg=excluded.yoy_avg,
                      prev_pct=excluded.prev_pct, yoy_pct=excluded.yoy_pct,
-                     collected_at=excluded.collected_at""",
+                     collected_at=CASE
+                       WHEN COALESCE(price_unit.avg_p,-1) != COALESCE(excluded.avg_p,-1)
+                         OR COALESCE(price_unit.low_p,-1) != COALESCE(excluded.low_p,-1)
+                         OR COALESCE(price_unit.max_p,-1) != COALESCE(excluded.max_p,-1)
+                       THEN excluded.collected_at ELSE price_unit.collected_at
+                     END""",
                 (trade_date, cd, unit, uq, it.get("itmNm"), rec["low_p"], rec["avg_p"], rec["max_p"],
                  rec["prev_avg"], rec["yoy_avg"], rec["prev_pct"], rec["yoy_pct"], now))
             saved += 1
@@ -266,7 +271,12 @@ def main() -> int:
                        ON CONFLICT (trade_date,item_cd,unit,region) DO UPDATE SET
                          item_nm=excluded.item_nm, low_p=excluded.low_p,
                          avg_p=excluded.avg_p, max_p=excluded.max_p,
-                         collected_at=excluded.collected_at""",
+                         collected_at=CASE
+                           WHEN COALESCE(price_region.avg_p,-1) != COALESCE(excluded.avg_p,-1)
+                             OR COALESCE(price_region.low_p,-1) != COALESCE(excluded.low_p,-1)
+                             OR COALESCE(price_region.max_p,-1) != COALESCE(excluded.max_p,-1)
+                           THEN excluded.collected_at ELSE price_region.collected_at
+                         END""",
                     [(trade_date, cd, unit, g["region"], it.get("itmNm"),
                       g["low_p"], g["avg_p"], g["max_p"], now) for g in regs])
                 reg_saved += len(regs)

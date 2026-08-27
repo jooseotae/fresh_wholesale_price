@@ -4,7 +4,7 @@ rem
 rem Scheduler runs this THREE times a day:
 rem   08:00  run_daily.cmd 채소   -- vegetable auctions confirmed overnight
 rem   11:00  run_daily.cmd 청과   -- fruit auctions confirmed by 11am
-rem   12:00  run_daily.cmd        -- final full refresh (no arg = both)
+rem   14:00  run_daily.cmd        -- final full refresh (no arg = both)
 rem
 rem NOTE: keep this file ASCII-only. cmd.exe reads it as the OEM codepage.
 setlocal

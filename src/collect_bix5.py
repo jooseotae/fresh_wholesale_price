@@ -190,7 +190,14 @@ def collect_prices(conn: sqlite3.Connection, date_str: str,
              unit=excluded.unit, unit_qty=excluded.unit_qty,
              mi_p=excluded.mi_p, av_p=excluded.av_p, ma_p=excluded.ma_p,
              pav_rate=excluded.pav_rate, j7_rate=excluded.j7_rate, j365_rate=excluded.j365_rate,
-             collected_at=excluded.collected_at""",
+             -- 값이 실제로 바뀌었을 때만 시각을 갱신한다 (미확정치 재수집으로 오해되지 않게)
+             collected_at=CASE
+               WHEN COALESCE(price_detail.av_p,-1) != COALESCE(excluded.av_p,-1)
+                 OR COALESCE(price_detail.mi_p,-1) != COALESCE(excluded.mi_p,-1)
+                 OR COALESCE(price_detail.ma_p,-1) != COALESCE(excluded.ma_p,-1)
+                 OR COALESCE(price_detail.pav_rate,'') != COALESCE(excluded.pav_rate,'')
+               THEN excluded.collected_at ELSE price_detail.collected_at
+             END""",
         [
             (
                 (r.get("INVEST_DT") or "").replace(".", "-"),
@@ -226,7 +233,11 @@ def collect_volumes(conn: sqlite3.Connection, date_str: str,
                ON CONFLICT (trade_date,buryu,item_nm) DO UPDATE SET
                  sector=excluded.sector, tot=excluded.tot, js_day=excluded.js_day,
                  js_week=excluded.js_week, unit_cd=excluded.unit_cd,
-                 collected_at=excluded.collected_at""",
+                 collected_at=CASE
+                   WHEN COALESCE(volume_daily.tot,-1) != COALESCE(excluded.tot,-1)
+                     OR COALESCE(volume_daily.js_day,-1) != COALESCE(excluded.js_day,-1)
+                   THEN excluded.collected_at ELSE volume_daily.collected_at
+                 END""",
             [
                 (
                     trade_date, buryu, SECTOR_OF_BURYU.get(buryu), r["구분"],
