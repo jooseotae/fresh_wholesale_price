@@ -284,23 +284,42 @@ def load_news(conn: sqlite3.Connection, ref: str | None, span: int = 5) -> tuple
     return [{"posted": a, "board": b, "title": c, "url": d} for a, b, c, d in rows], 0
 
 
-def data_updated_at(conn: sqlite3.Connection) -> str:
-    """데이터가 마지막으로 실제로 채워진 시각.
+def _fmt_ts(ts: str | None) -> str | None:
+    return ts.replace("T", " ")[:16] if ts else None
 
-    재빌드만 한 경우엔 값이 그대로여야 사용자가 오해하지 않는다.
-    수집 스크립트가 각 행에 남긴 collected_at 중 가장 최신을 쓴다.
+
+def data_updated_by_sector(conn: sqlite3.Connection) -> dict:
+    """채소·청과 각각의 최종 수집 시각.
+
+    부문별 스케줄(08시 채소 / 11시 청과)이 반영된 시각을 각각 보여준다.
+    volume_daily 는 sector 컬럼이 있고, price_detail 은 rptv_nm 을 volume_daily
+    에 조인해 부문을 알아낸다.
     """
-    ts = None
-    for tbl in ("price_detail", "volume_daily", "price_unit"):
-        try:
-            v = conn.execute(f"SELECT MAX(collected_at) FROM {tbl}").fetchone()[0]
-            if v and (ts is None or v > ts):
-                ts = v
-        except sqlite3.OperationalError:
-            continue
-    if not ts:
-        return dt.datetime.now().strftime("%Y-%m-%d %H:%M")
-    return ts.replace("T", " ")[:16]
+    out: dict[str, str | None] = {"채소": None, "청과": None, "all": None}
+    try:
+        rows = conn.execute("""
+            SELECT sector, MAX(collected_at) FROM (
+              SELECT v.sector, v.collected_at FROM volume_daily v
+              UNION ALL
+              SELECT v.sector, p.collected_at
+                FROM price_detail p
+                JOIN (SELECT DISTINCT item_nm, sector FROM volume_daily) v
+                  ON v.item_nm = p.rptv_nm
+              UNION ALL
+              SELECT v.sector, u.collected_at
+                FROM price_unit u
+                JOIN price_detail d ON d.item_cd = u.item_cd AND d.grade_cd='1'
+                JOIN (SELECT DISTINCT item_nm, sector FROM volume_daily) v
+                  ON v.item_nm = d.rptv_nm
+            ) WHERE sector IS NOT NULL GROUP BY sector
+        """).fetchall()
+        for sec, ts in rows:
+            out[sec] = _fmt_ts(ts)
+    except sqlite3.OperationalError:
+        pass
+    both = [t for t in (out["채소"], out["청과"]) if t]
+    out["all"] = max(both) if both else None
+    return out
 
 
 def build_payload(conn: sqlite3.Connection) -> dict:
@@ -338,7 +357,8 @@ def build_payload(conn: sqlite3.Connection) -> dict:
     return {
         "volumeDate": vdate,
         "priceDate": pdate,
-        "generated": data_updated_at(conn),
+        "updated": data_updated_by_sector(conn),
+        "generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "sectors": sectors,
         "prices": prices,
         "series": load_series(conn, sorted(need)),

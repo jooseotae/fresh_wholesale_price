@@ -44,6 +44,38 @@ VOL_DS = {
 # 부류 → 자사 부문. 양곡은 별도 소스가 미확보라 아직 없다.
 SECTOR_OF_BURYU = {"과일류": "청과", "과일과채류": "청과", "일반채소류": "채소"}
 
+# 가격 소스에는 부문 정보가 없어 대표품목명으로 판별한다.
+# 과일과채류(오이·호박·가지)는 자사 기준 채소로 넣는다 (build_v2 와 동일).
+FRUIT_ITEMS = {
+    "사과", "사과 부사", "사과 홍로", "사과 아오리", "배", "배 신고", "배 원황",
+    "감귤", "감귤 하우스", "만감", "만감 한라봉", "만감 천혜향", "만감 레드향",
+    "포도", "복숭아", "자두", "매실", "살구", "딸기",
+    "참외", "수박", "멜론", "멜론 머스크", "멜론 파파야",
+    "토마토", "방울토마토", "대추방울토마토",
+    "바나나", "바나나 수입", "오렌지", "오렌지 네블", "파인애플", "골드파인애플",
+    "망고", "아보카도", "자몽", "대추", "레몬", "체리", "블루베리", "무화과",
+    "단감", "감", "홍시", "곶감", "키위",
+}
+FRUITVEG_TO_VEG_ITEMS = {"오이", "가시오이", "백다다기오이", "호박", "쥬키니호박", "늙은호박",
+                         "단호박", "단호박(일반)", "가지"}
+
+
+def sector_of_rptv(rptv_nm: str | None) -> str:
+    """대표품목명으로 채소/청과 판별. 모르면 '채소' 로 떨어뜨린다 (일반채소류가 다수)."""
+    if not rptv_nm:
+        return "채소"
+    if rptv_nm in FRUITVEG_TO_VEG_ITEMS:
+        return "채소"
+    if rptv_nm in FRUIT_ITEMS:
+        return "청과"
+    # 이름에 흔한 청과 키워드가 있으면 청과로
+    for kw in ("바나나", "오렌지", "파인애플", "망고", "자몽", "체리", "포도", "복숭아",
+               "자두", "사과", "배 ", "감귤", "만감", "토마토", "멜론", "수박", "참외",
+               "딸기", "블루베리", "무화과", "키위", "감 ", "단감"):
+        if kw in rptv_nm:
+            return "청과"
+    return "채소"
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS price_detail (
   trade_date TEXT NOT NULL,
@@ -131,11 +163,22 @@ def as_int(v):
         return None
 
 
-def collect_prices(conn: sqlite3.Connection, date_str: str) -> int:
+def collect_prices(conn: sqlite3.Connection, date_str: str,
+                   only_sector: str | None = None) -> int:
+    """가격 수집. only_sector 를 주면 그 부문만 upsert (다른 부문은 건드리지 않음).
+
+    같은 소스에 채소·청과가 섞여 오므로 부문별 스케줄 실행 시 부문 밖 값은
+    저장하지 않는다. 이렇게 해야 08:00에 실행해도 미확정 청과값이 어제 값을
+    덮어쓰지 않는다.
+    """
     p = {"startDate": date_str, "endDate": date_str, "handlClssCd": "2"}
     rows = with_retry(lambda: Bix5Session(PRICE_SHARE, p).datasource(PRICE_DS, p), f"{date_str} 가격")
     if not rows:
         return 0
+    if only_sector:
+        rows = [r for r in rows if sector_of_rptv(r.get("RPTV_ITM_NM")) == only_sector]
+        if not rows:
+            return 0
     now = dt.datetime.now().isoformat(timespec="seconds")
     conn.executemany(
         """INSERT INTO price_detail
@@ -163,7 +206,8 @@ def collect_prices(conn: sqlite3.Connection, date_str: str) -> int:
     return len(rows)
 
 
-def collect_volumes(conn: sqlite3.Connection, date_str: str) -> int:
+def collect_volumes(conn: sqlite3.Connection, date_str: str,
+                    only_sector: str | None = None) -> int:
     p = {"s_date": date_str, "s_unitcd": "t", "handlClssCd": "2"}
     sess = with_retry(lambda: Bix5Session(VOL_SHARE, p), f"{date_str} 반입물량 세션")
     trade_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
@@ -171,6 +215,8 @@ def collect_volumes(conn: sqlite3.Connection, date_str: str) -> int:
     total = 0
 
     for buryu, ds_id in VOL_DS.items():
+        if only_sector and SECTOR_OF_BURYU.get(buryu) != only_sector:
+            continue
         rows = with_retry(lambda d=ds_id: sess.datasource(d, p), f"{date_str} {buryu}")
         items = [r for r in rows if r.get("구분") not in ("계", "합계") and r.get("구분")]
         conn.executemany(
@@ -194,10 +240,12 @@ def collect_volumes(conn: sqlite3.Connection, date_str: str) -> int:
     return total
 
 
-def collect_one(conn: sqlite3.Connection, date_str: str) -> tuple[int, int]:
-    n_price = collect_prices(conn, date_str)
-    n_vol = collect_volumes(conn, date_str)
-    logging.info("%s 가격 %d행 / 물량 %d행", date_str, n_price, n_vol)
+def collect_one(conn: sqlite3.Connection, date_str: str,
+                only_sector: str | None = None) -> tuple[int, int]:
+    n_price = collect_prices(conn, date_str, only_sector)
+    n_vol = collect_volumes(conn, date_str, only_sector)
+    tag = f" ({only_sector}만)" if only_sector else ""
+    logging.info("%s%s 가격 %d행 / 물량 %d행", date_str, tag, n_price, n_vol)
     return n_price, n_vol
 
 
@@ -205,6 +253,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="BIX5 가격·반입물량 수집")
     ap.add_argument("--date", help="YYYYMMDD (기본: 오늘)")
     ap.add_argument("--backfill", type=int, metavar="N", help="기준일부터 N일 소급")
+    ap.add_argument("--sector", choices=("채소", "청과"),
+                    help="이 부문만 갱신 (다른 부문은 건드리지 않음)")
     args = ap.parse_args()
 
     setup_logging()
@@ -219,7 +269,7 @@ def main() -> int:
     try:
         for i, day in enumerate(targets):
             try:
-                a, b = collect_one(conn, day.strftime("%Y%m%d"))
+                a, b = collect_one(conn, day.strftime("%Y%m%d"), args.sector)
                 tp += a
                 tv += b
             except RuntimeError as exc:

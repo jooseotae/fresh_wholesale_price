@@ -730,9 +730,12 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     el.innerHTML = h + '</div>';
   }
 
-  $('meta').innerHTML = '물량 기준일 <b>' + esc(DATA.volumeDate || '—') + '</b> · 가격 기준일 <b>' +
-    esc(DATA.priceDate || '—') + '</b> · 갱신 ' + esc(DATA.generated) +
-    (DATA.volumeDate !== DATA.priceDate ? ' <span class="note">(가격은 경매 확정일 기준이라 하루 차이가 날 수 있습니다)</span>' : '');
+  var upd = DATA.updated || {};
+  var updHtml = '';
+  if (upd['채소']) updHtml += '<span style="margin-right:14px">채소 갱신 <b>' + esc(upd['채소'].slice(5)) + '</b></span>';
+  if (upd['청과']) updHtml += '<span>청과 갱신 <b>' + esc(upd['청과'].slice(5)) + '</b></span>';
+  if (!updHtml) updHtml = '갱신 ' + esc(DATA.generated);
+  $('meta').innerHTML = '기준일 <b>' + esc(DATA.priceDate || DATA.volumeDate || '—') + '</b><br>' + updHtml;
 
   $('bigback').addEventListener('click', function () {
     // 히스토리를 소비해 브라우저 뒤로가기와 동작을 맞춘다

@@ -185,6 +185,8 @@ def main() -> int:
     ap.add_argument("--date", help="YYYYMMDD (기본: 오늘)")
     ap.add_argument("--limit", type=int, help="앞에서 N개만 (시험용)")
     ap.add_argument("--no-region", action="store_true", help="산지별을 건너뛴다")
+    ap.add_argument("--sector", choices=("채소", "청과"),
+                    help="이 부문 품목만 갱신")
     args = ap.parse_args()
 
     setup_logging()
@@ -192,6 +194,11 @@ def main() -> int:
     trade_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
 
     items = fetch_items(date_str)
+    if args.sector:
+        # collect_bix5 의 sector_of_rptv 를 재사용해 품목명으로 걸러낸다
+        from collect_bix5 import sector_of_rptv
+        items = [it for it in items
+                 if sector_of_rptv(it.get("rptvItmNm") or it.get("itmNm")) == args.sector]
     if args.limit:
         items = items[: args.limit]
     logging.info("규격별 수집 시작: %s / %d조합", date_str, len(items))
