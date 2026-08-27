@@ -546,7 +546,8 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     return h;
   }
 
-  function render() {
+  function render(push) {
+    if (push !== false) syncHistory();
     renderNav();
     var v = $('view');
     v.innerHTML = state.level === 'all' ? viewAll() : state.level === 'sector' ? viewSector() : viewItem();
@@ -561,6 +562,51 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
       });
     });
   }
+
+  // ---------- 브라우저 히스토리 ----------
+  // 드릴다운 단계를 히스토리에 쌓아 뒤로가기가 사이트를 벗어나지 않게 한다.
+  // 주소는 #청과/복숭아 형태라 그대로 공유하면 그 화면이 바로 열린다.
+  function stateHash(st) {
+    if (st.level === 'all') return '#';
+    var h = '#' + encodeURIComponent(st.sector || '');
+    if (st.item) h += '/' + encodeURIComponent(st.item);
+    return h;
+  }
+
+  function parseHash(h) {
+    var raw = String(h || '').replace(/^#/, '');
+    if (!raw) return { level: 'all', sector: null, item: null };
+    var parts = raw.split('/').map(decodeURIComponent);
+    var sec = parts[0], item = parts[1];
+    if (!DATA.sectors[sec]) return { level: 'all', sector: null, item: null };
+    // 없는 품목이 주소에 있으면 부문 화면으로 떨어뜨린다
+    if (item && !(DATA.sectors[sec] || []).some(function (x) { return x.item === item; })) item = null;
+    return { level: item ? 'item' : 'sector', sector: sec, item: item || null };
+  }
+
+  function syncHistory() {
+    var h = stateHash(state);
+    if (h === location.hash || (h === '#' && !location.hash)) return;  // 같은 화면이면 안 쌓는다
+    history.pushState({ level: state.level, sector: state.sector, item: state.item }, '', h);
+  }
+
+  window.addEventListener('popstate', function (e) {
+    // 뒤로/앞으로 — 히스토리에 담긴 상태가 있으면 그대로, 없으면 주소에서 읽는다
+    state = e.state && e.state.level ? e.state : parseHash(location.hash);
+    render(false);
+    window.scrollTo(0, 0);
+  });
+
+  // 백스페이스로도 뒤로 — 단, 입력 중일 때는 글자 지우기를 방해하면 안 된다
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Backspace' || e.altKey || e.ctrlKey || e.metaKey) return;
+    var t = e.target;
+    var typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (typing) return;
+    if (state.level === 'all') return;   // 최상위에서는 사이트를 벗어나지 않게 둔다
+    e.preventDefault();
+    history.back();
+  });
 
   function wireSearch() {
     // 레벨2는 품목(iq/ibody), 레벨3은 품종(vq/vbody). 동작은 같다.
@@ -648,7 +694,9 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     (DATA.volumeDate !== DATA.priceDate ? ' <span class="note">(가격은 경매 확정일 기준이라 하루 차이가 날 수 있습니다)</span>' : '');
 
   renderNews();
-  render();
+  state = parseHash(location.hash);
+  history.replaceState({ level: state.level, sector: state.sector, item: state.item }, '', stateHash(state));
+  render(false);
 })();
 </script>
 </body>
