@@ -284,6 +284,25 @@ def load_news(conn: sqlite3.Connection, ref: str | None, span: int = 5) -> tuple
     return [{"posted": a, "board": b, "title": c, "url": d} for a, b, c, d in rows], 0
 
 
+def data_updated_at(conn: sqlite3.Connection) -> str:
+    """데이터가 마지막으로 실제로 채워진 시각.
+
+    재빌드만 한 경우엔 값이 그대로여야 사용자가 오해하지 않는다.
+    수집 스크립트가 각 행에 남긴 collected_at 중 가장 최신을 쓴다.
+    """
+    ts = None
+    for tbl in ("price_detail", "volume_daily", "price_unit"):
+        try:
+            v = conn.execute(f"SELECT MAX(collected_at) FROM {tbl}").fetchone()[0]
+            if v and (ts is None or v > ts):
+                ts = v
+        except sqlite3.OperationalError:
+            continue
+    if not ts:
+        return dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+    return ts.replace("T", " ")[:16]
+
+
 def build_payload(conn: sqlite3.Connection) -> dict:
     vdate = latest_date(conn, "volume_daily")
     pdate = latest_date(conn, "price_detail")
@@ -319,7 +338,7 @@ def build_payload(conn: sqlite3.Connection) -> dict:
     return {
         "volumeDate": vdate,
         "priceDate": pdate,
-        "generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "generated": data_updated_at(conn),
         "sectors": sectors,
         "prices": prices,
         "series": load_series(conn, sorted(need)),
