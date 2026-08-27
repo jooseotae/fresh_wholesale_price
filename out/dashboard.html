@@ -37,6 +37,12 @@ h1{font-size:29px;font-weight:750;margin:0 0 7px;letter-spacing:-.7px;line-heigh
   letter-spacing:-.1px;line-height:1.45}
 .meta b{color:#000;font-weight:800;font-size:17.5px}
 .meta .note{color:#5a4a00;font-size:14px}
+/* 다크모드에선 배경이 어두워 검정 글씨가 안 읽힌다. 노란 톤을 유지한 밝은 글씨로. */
+@media (prefers-color-scheme:dark){
+  .meta{color:#ffe27a}
+  .meta b{color:#fff56b}
+  .meta .note{color:#e8c85a}
+}
 h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:24px 0 10px}
 
 /* 고정 내비게이션 — 어느 단계에서든 자유 이동 */
