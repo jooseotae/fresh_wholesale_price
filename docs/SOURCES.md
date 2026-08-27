@@ -80,6 +80,34 @@ BIX5 데이터소스는 세션 쿠키를 요구하고, 파라미터는 **POST �
 - `POST /youtong/bigDataAnalyzesList.do` body `{"selectedDate":"20260824"}`
 - 12품목 고정. P1 전환 후에도 백필된 1년치 이력이 있어 유지한다.
 
+### 5. 규격(단위)별 경락가격 ✅ 검증 완료
+
+`품목별 세부 경락정보` 화면의 소스. 같은 품종도 포장 규격별로 갈라 준다.
+
+- 품목 목록 `POST /youtong/G1000462/dashboard/getAllTypeListOriginAjax.do`
+  body `{"stdDate","endDate","mrktDiv":"1"}` → 농산 271 조합 (품종 209 × 규격)
+- SHARE `4ee3e775b0d8399aa0c010f4d5eb28d6`
+- DS `40b1536a3620f5559aee46dea7493b69` — 최고/최저/평균 + 전일 + **전년**
+- DS `463f86bb3474d27fb54ce6ee3b2b0bd1` — 등급별 평균가
+- 파라미터 `{mrktDiv, startDate, endDate, handlClssCd:"2", selectedItmCd, selectedRptvItmCd, selectedItmNm:"", unitQty}`
+
+**한계: 전 품목 일괄 조회 불가.** `selectedItmCd` 를 비우면 0행이라 조합마다 개별
+요청이 필요하다. 세션 하나를 재사용해 271회를 돌리면 약 100초, 하루 1회면 감당된다.
+
+실측 (2026-08-27, 수박 일반): 5kg개 1,122원/kg · 6kg개 1,708 · 7kg개 2,002 ·
+8kg개 1,932 · 9kg개 2,061 · 10kg상자 1,546 → 규격별 단가차가 최대 84%.
+
+### 6. 같은 화면의 나머지 소스 (미적용, ID는 확보)
+
+| 대상 | SHARE | DS |
+|---|---|---|
+| 법인별 가격 | `4c17838957ec9242950433b880e32335` | `4365504a6e70b5dfb77e818ad45e0276` |
+| **지역별(산지) 가격** | `42d1bbeb088352899f4258d5bca0adca` | `4d06530096924d3fb22266885bc31487` |
+| 경락가격 일별 추이 | `4f0ceb97054277b0b0a9212dd49a1a34` | `4629675ad9811961af02fa7264a5266e` |
+
+지역별은 산지명이 열로 오는 피벗 형태(`COL1`=가격구분, `COL2~`=산지별 값)라
+파싱이 조금 다르다. 파라미터와 세션 규약은 5번과 동일.
+
 ## 미확보 — 추가 조사 필요
 
 | 대상 | 상태 |
@@ -88,8 +116,7 @@ BIX5 데이터소스는 세션 쿠키를 요구하고, 파라미터는 **POST �
 | 거래동향 | SHARE 4종 확인 `412718a72a85b1a58cd77843f1d9c233`, `45a0c1bd5fee85418774d073a80a1a8c`, `48ac32b15db92cfe96c0be345cf627bb`, `4b72b77499ea86adbe9fb3bf66999f8b` — DS_ID 미확인 |
 | 고중저가격 | SHARE `4e7e82cc9045ec7ca15f1ed06f37920b` — DS_ID 미확인 |
 | **양곡 (백미10kg/잡곡)** | ⛔ 페이지에 iframe이 렌더링되지 않음. 검색 액션 후 생성되는 구조로 보임. 별도 조사 필요 |
-| 품목별 세부 경락정보 | `POST /youtong/G1000462/dashboard/getAllTypeListOriginAjax.do` 존재. 미조사 |
-| 5개년가격 / 산지별 / 법인별 | 페이지에 share 없음. 미조사 |
+| 5개년가격 | `POST /youtong/G1000462/dashboard/getAllTypeYearsListAjax.do` 로 1,165건 목록 확인(품종×규격×등급). 가격 DS 미조사 |
 | 가격전망 | 게시판(`/youtong/G1000343/board/list.do`) — 데이터가 아닌 문서. 링크 노출로 처리 |
 
 ## 이용 제한

@@ -18,19 +18,25 @@ rem 2) Legacy 12-item source - keeps the 400-day history series alive
 "%PY%" src\collect.py
 set RC_LEGACY=%ERRORLEVEL%
 
-rem 3) News board (trend / forecast postings)
+rem 3) Unit-level prices (per item x package spec, incl. YoY).
+rem    Needs one request per item-unit combo (~271), takes about 2 minutes.
+"%PY%" src\collect_unit.py
+set RC_UNIT=%ERRORLEVEL%
+
+rem 4) News board (trend / forecast postings)
 "%PY%" src\collect_news.py
 set RC_NEWS=%ERRORLEVEL%
 
-rem 4) Rebuild the drilldown dashboard even if collection failed, so the page
+rem 5) Rebuild the drilldown dashboard even if collection failed, so the page
 rem    still shows the last good data.
 "%PY%" src\build_v2.py
 
 if not "%RC_BIX5%"=="0"   echo [WARN] BIX5 collection failed - see logs\collect.log
 if not "%RC_LEGACY%"=="0" echo [WARN] legacy collection failed - see logs\collect.log
 if not "%RC_NEWS%"=="0"   echo [WARN] news collection failed - see logs\collect.log
+if not "%RC_UNIT%"=="0"   echo [WARN] unit-price collection failed - see logs\collect.log
 
-rem 5) Auto-commit and push so Vercel redeploys with today's data.
+rem 6) Auto-commit and push so Vercel redeploys with today's data.
 rem    Skips if nothing changed. Non-fatal if git/network fails.
 rem    First-time push needs manual auth via Git Credential Manager.
 where git >nul 2>&1

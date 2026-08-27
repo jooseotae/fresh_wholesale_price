@@ -454,6 +454,27 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
       lineChart(ser.volume, { color: 'var(--muted)', label: '반입량 추이' }) + '</div>';
     h += '</div>';
 
+    var units = (DATA.units || {})[state.item] || [];
+    if (units.length) {
+      h += '<h2>규격별 가격 · 전년 대비</h2>';
+      h += '<div class="note" style="margin:0 0 10px">같은 품목도 포장 규격에 따라 단가가 갈립니다. ' +
+        '단위단가로 비교하면 어떤 규격이 유리한지 바로 보입니다.</div>';
+      h += '<div class="table-wrap"><table>' +
+        '<thead><tr><th>품종</th><th>규격</th><th class="num">평균가</th><th class="num">단위단가</th>' +
+        '<th class="num">최저</th><th class="num">최고</th>' +
+        '<th class="num">전일비</th><th class="num">전년비</th></tr></thead><tbody>';
+      units.forEach(function (u) {
+        var up = u.up ? n(u.up.v) + '<span class="note"> 원/' + esc(u.up.b) + '</span>' : '—';
+        h += '<tr><td class="strong">' + esc(u.nm) + '</td>' +
+          '<td class="note">' + esc(u.unit) + '</td>' +
+          '<td class="num strong">' + n(u.avg) + '</td><td class="num">' + up + '</td>' +
+          '<td class="num">' + n(u.low) + '</td><td class="num">' + n(u.max) + '</td>' +
+          '<td class="num ' + cls(u.pct) + '">' + pct(u.pct) + '</td>' +
+          '<td class="num ' + cls(u.yoy) + '">' + pct(u.yoy) + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+
     if (price && price.varieties.length) {
       var gcount = {};
       price.varieties.forEach(function (v) { gcount[v.g] = (gcount[v.g] || 0) + 1; });

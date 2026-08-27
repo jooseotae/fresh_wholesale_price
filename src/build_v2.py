@@ -179,6 +179,34 @@ def load_prices(conn: sqlite3.Connection, date: str) -> dict[str, dict]:
     return out
 
 
+def load_units(conn: sqlite3.Connection, date: str) -> dict[str, list[dict]]:
+    """대표품목별 규격(단위)별 가격.
+
+    '품목별가격' 소스는 품종당 대표 규격 하나만 준다. 이 표는 세부 경락정보에서
+    받아온 규격별 값이라 수박 7규격·양파 5규격처럼 갈라 볼 수 있고, 전년 대비도 온다.
+    품종 커버리지는 조금 좁아(당일 거래가 없으면 빠짐) 보완용으로 붙인다.
+    """
+    rows = conn.execute(
+        """SELECT d.rptv_nm, u.item_nm, u.unit, u.unit_qty,
+                  u.low_p, u.avg_p, u.max_p, u.prev_pct, u.yoy_pct
+           FROM price_unit u
+           JOIN (SELECT DISTINCT item_cd, rptv_nm FROM price_detail WHERE trade_date=?) d
+             ON d.item_cd = u.item_cd
+           WHERE u.trade_date=? AND u.avg_p > 0
+           ORDER BY d.rptv_nm, u.item_nm, CAST(u.unit_qty AS REAL)""",
+        (date, date),
+    ).fetchall()
+    out: dict[str, list[dict]] = {}
+    for rptv, nm, unit, uq, lo, av, mx, pp, yp in rows:
+        up = unit_price(av, unit, uq)
+        out.setdefault(rptv, []).append({
+            "nm": nm, "unit": unit, "low": lo, "avg": av, "max": mx,
+            "pct": pp, "yoy": yp,
+            "up": {"v": up[0], "b": up[1]} if up else None,
+        })
+    return out
+
+
 def load_series(conn: sqlite3.Connection, rptv_list: list[str]) -> dict[str, dict]:
     """대표품목별 가격·물량 시계열. 가격은 대표 품종의 평균가를 쓴다."""
     out: dict[str, dict] = {}
@@ -273,6 +301,7 @@ def build_payload(conn: sqlite3.Connection) -> dict:
         "sectors": sectors,
         "prices": prices,
         "series": load_series(conn, sorted(need)),
+        "units": load_units(conn, pdate) if pdate else {},
         "news": news_rows,
         "newsSpan": news_span,
         "newsSpanLabel": "D-" + str(news_span) if news_span else "최근",
