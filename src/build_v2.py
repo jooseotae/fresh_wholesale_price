@@ -229,6 +229,33 @@ def load_regions(conn: sqlite3.Connection, date: str) -> dict[str, list[dict]]:
     return out
 
 
+def load_top1_week(conn: sqlite3.Connection) -> dict[str, list[dict]]:
+    """최근 7일 각 날짜의 부문별 TOP1 반입량. 매일 품목이 바뀔 수 있다.
+
+    volume_daily.sector 는 collect 시각 기준이라 과일과채류가 모두 청과다.
+    화면 표시와 맞추려면 build 시점의 재분류(오이·호박·가지=채소)를 다시 적용한다.
+    """
+    rows = conn.execute("""
+        SELECT trade_date, buryu, item_nm, tot FROM volume_daily
+        WHERE tot > 0 AND trade_date >= date((SELECT MAX(trade_date) FROM volume_daily), '-6 days')
+    """).fetchall()
+    best: dict[tuple, tuple] = {}
+    for date, buryu, nm, tot in rows:
+        sec = sector_of(buryu, nm)
+        key = (date, sec)
+        if key not in best or tot > best[key][1]:
+            best[key] = (nm, tot)
+    dates = sorted({d for d, _, _, _ in rows})
+    out: dict[str, list[dict]] = {"청과": [], "채소": []}
+    for sec in ("청과", "채소"):
+        cum = 0
+        for d in dates:
+            nm, tot = best.get((d, sec), (None, 0))
+            cum += tot
+            out[sec].append({"date": d, "item": nm, "tot": tot, "cum": cum})
+    return out
+
+
 def load_series(conn: sqlite3.Connection, rptv_list: list[str]) -> dict[str, dict]:
     """대표품목별 가격·물량 시계열. 가격은 대표 품종의 평균가를 쓴다."""
     out: dict[str, dict] = {}
@@ -364,6 +391,7 @@ def build_payload(conn: sqlite3.Connection) -> dict:
         "series": load_series(conn, sorted(need)),
         "units": load_units(conn, pdate) if pdate else {},
         "regions": load_regions(conn, pdate) if pdate else {},
+        "top1Week": load_top1_week(conn),
         "news": news_rows,
         "newsSpan": news_span,
         "newsSpanLabel": "D-" + str(news_span) if news_span else "최근",

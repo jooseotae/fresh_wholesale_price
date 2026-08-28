@@ -239,6 +239,42 @@ var DATA = /*__DATA__*/ null;
     return s + '</svg>';
   }
 
+  function cumBar(rows, color) {
+    if (!rows.length) return '<div class="note">데이터가 없습니다.</div>';
+    var w = 460, h = 220, padL = 46, padR = 14, padT = 30, padB = 40;
+    var iw = w - padL - padR, ih = h - padT - padB;
+    var maxCum = Math.max.apply(null, rows.map(function (r) { return r.cum || 0; })) || 1;
+    var bw = iw / rows.length;
+    var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="누적 반입량">';
+    [0, 0.5, 1].forEach(function (t) {
+      var y = padT + ih * (1 - t);
+      s += '<line class="axis" x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '" opacity=".55"/>';
+      s += '<text class="tick" x="' + (padL - 6) + '" y="' + (y + 3) + '" text-anchor="end">' + n(Math.round(maxCum * t)) + 't</text>';
+    });
+    rows.forEach(function (r, i) {
+      var x = padL + i * bw + bw * 0.15, bwx = bw * 0.7;
+      var val = r.tot || 0;
+      var barH = ih * (val / maxCum);
+      var y = padT + ih - barH;
+      s += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bwx.toFixed(1) + '" height="' + barH.toFixed(1) + '" rx="2" fill="' + color + '" opacity=".65"><title>' + esc(r.date) + ' · ' + esc(r.item || '—') + ' · ' + n(val) + 't</title></rect>';
+      s += '<text class="gval" x="' + (x + bwx / 2).toFixed(1) + '" y="' + (padT - 6) + '" text-anchor="middle" fill="var(--ink)">' + esc(r.item || '—') + '</text>';
+      s += '<text class="tick" x="' + (x + bwx / 2).toFixed(1) + '" y="' + (h - 22) + '" text-anchor="middle">' + esc(r.date.slice(5)) + '</text>';
+      s += '<text class="tick" x="' + (x + bwx / 2).toFixed(1) + '" y="' + (h - 8) + '" text-anchor="middle" fill="var(--muted)">누적 ' + n(r.cum) + '</text>';
+    });
+    var linePts = rows.map(function (r, i) {
+      var x = padL + i * bw + bw / 2;
+      var y = padT + ih * (1 - (r.cum || 0) / maxCum);
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    s += '<polyline points="' + linePts + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round"/>';
+    rows.forEach(function (r, i) {
+      var x = padL + i * bw + bw / 2;
+      var y = padT + ih * (1 - (r.cum || 0) / maxCum);
+      s += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3" fill="' + color + '"/>';
+    });
+    return s + '</svg>';
+  }
+
   function lineChart(series, opt) {
     opt = opt || {};
     var pts = (series || []).filter(function (p) { return p[1] != null; });
@@ -426,7 +462,11 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     var h = '<div class="kpis">';
     h += kpi('반입량', n(t) + 't', '전일 ' + n(p) + 't · <span class="' + cls(p ? (t - p) / p * 100 : null) + '">' + pct(p ? (t - p) / p * 100 : null) + '</span>');
     h += kpi('전주 대비', pct(w ? (t - w) / w * 100 : null), '전주 ' + n(w) + 't');
-    h += kpi('품목 수', items.length + '개', '가격 확인 ' + items.filter(function (i) { return i.pricePct != null; }).length + '개');
+    // 검색은 전 부문이므로 품목 수도 전 부문 기준
+    var allItemsAll = [];
+    Object.keys(DATA.sectors).forEach(function (k) { allItemsAll = allItemsAll.concat(DATA.sectors[k]); });
+    var priced = allItemsAll.filter(function (i) { return i.pricePct != null; }).length;
+    h += kpi('품목 수 (전체)', allItemsAll.length + '개', '가격 확인 ' + priced + '개 · ' + state.sector + ' ' + items.length + '개');
     h += '</div>';
 
     var color = state.sector === '청과' ? 'var(--cheong)' : 'var(--chae)';
@@ -443,21 +483,30 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     h += '<div class="card"><h3>' + esc(state.sector) + ' 반입량</h3>' +
       challenge('막대를 클릭하면 그 품목 상세로 · 옆 숫자는 전일대비 물량 증감') + barChart(rows, { unit: 't' }) + '</div></div>';
 
-    h += '<h2>품목 전체</h2>';
-    h += '<div class="hint">👆 행을 클릭하면 그 품목의 품종별 상세로 들어갑니다</div>';
+    h += '<h2>품목 · 반입량 TOP ' + DATA.topN + ' (검색은 전 부문)</h2>';
+    h += '<div class="hint">👆 행을 클릭하면 품종별 상세로 · 아래 검색은 청과·채소 전체에서 찾습니다</div>';
     h += '<div class="searchbar">' +
-      '<input class="search" id="iq" type="search" autocomplete="off" placeholder="품목명으로 검색 (예: 복숭아, 오이)">' +
+      '<input class="search" id="iq" type="search" autocomplete="off" placeholder="검색: 전체 부문에서 품목명으로 (예: 복숭아, 오이)">' +
       '<span class="hits" id="ihits"></span>' +
       '<button type="button" class="clearq" id="iclear" hidden>지우기</button></div>';
     h += '<div class="table-wrap"><table>' +
-      '<thead><tr><th>품목</th><th>대표 품종</th><th class="num">평균가</th><th class="num">단위단가</th>' +
+      '<thead><tr><th>품목</th><th>부문</th><th>대표 품종</th><th class="num">평균가</th><th class="num">단위단가</th>' +
       '<th class="num">반입(t)</th><th class="num">전일</th><th class="num">물량 전일비</th>' +
       '<th class="num">가격 전일비</th><th></th></tr></thead><tbody id="ibody">';
-    items.forEach(function (i) {
+    var top10 = items.slice(0, DATA.topN).map(function (x) { return Object.assign({}, x, { _top: 1 }); });
+    var rest = items.slice(DATA.topN).map(function (x) { return Object.assign({}, x, { _top: 0 }); });
+    var other = [];
+    Object.keys(DATA.sectors).forEach(function (k) {
+      if (k !== state.sector) DATA.sectors[k].forEach(function (x) { other.push(Object.assign({}, x, { _top: 0 })); });
+    });
+    var allRows = top10.concat(rest).concat(other);
+    allRows.forEach(function (i) {
       var up = i.unitPrice != null ? n(i.unitPrice) + '<span class="note"> 원/' + esc(i.unitBase || '') + '</span>' : '—';
       h += '<tr class="click" data-item="' + esc(i.item) + '" data-sector="' + esc(i.sector) + '"' +
+        ' data-top="' + i._top + '"' +
         ' data-q="' + esc(((i.item || '') + ' ' + (i.repName || '')).toLowerCase()) + '">' +
         '<td class="strong"><span class="item-link">' + esc(i.item) + '</span></td>' +
+        '<td><span class="badge ' + esc(i.sector) + '">' + esc(i.sector) + '</span></td>' +
         '<td>' + esc(i.repName || '—') + (i.repUnit ? ' <span class="note">' + esc(i.repUnit) + '</span>' : '') + '</td>' +
         '<td class="num strong">' + n(i.repAvg) + '</td>' +
         '<td class="num">' + up + '</td>' +
@@ -669,11 +718,13 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
           var g = tr.getAttribute('data-g');
           // 등급 칩은 품종 표(vbody)에만 있다. 품목 표(ibody)에는 data-g가 없다.
           var gOk = (g == null) || gradeSel === 'all' || g === gradeSel;
-          var ok = gOk && terms.every(function (t) { return (tr.getAttribute('data-q') || '').indexOf(t) > -1; });
+          var top = tr.getAttribute('data-top');
+          var topOk = top == null || terms.length > 0 || top === '1';
+          var ok = gOk && topOk && terms.every(function (t) { return (tr.getAttribute('data-q') || '').indexOf(t) > -1; });
           tr.hidden = !ok;
           if (ok) shown++;
         });
-        hits.textContent = terms.length ? shown + ' / ' + rows.length + unit : rows.length + unit;
+        hits.textContent = terms.length ? shown + ' / ' + rows.length + unit + ' (전 부문)' : '전 부문 ' + rows.length + unit;
         clear.hidden = !terms.length;
 
         if (!shown) {
