@@ -45,7 +45,20 @@ h1{font-size:29px;font-weight:750;margin:0 0 7px;letter-spacing:-.7px;line-heigh
   .meta b{color:#fff56b}
   .meta .note{color:#e8c85a}
 }
-h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:24px 0 10px}
+/* 섹션 타이틀 — 왼쪽 컬러 바 + 진한 글자로 그룹 헤더처럼 보이게 */
+h2{font-size:17px;font-weight:750;text-transform:none;letter-spacing:-.2px;color:var(--ink);
+  margin:26px 0 12px;display:flex;align-items:center;gap:10px;line-height:1.35}
+h2::before{content:"";width:4px;height:18px;background:var(--chae);border-radius:2px;flex:0 0 auto}
+
+/* 섹션 래퍼 — H2와 그 아래 카드/표를 한 판 안에 얹어 "안에 들어간" 느낌 */
+.section{background:var(--card);border:1px solid var(--line);border-radius:13px;
+  padding:14px 16px 16px;box-shadow:var(--sh);margin:22px 0 0}
+.section > h2{margin:0 0 12px;font-size:17px}
+.section > .cards{margin-top:0}
+/* 섹션 안의 카드는 그림자를 빼고 살짝 톤 다운해 중첩감을 줄인다 */
+.section > .cards > .card{box-shadow:none;background:var(--soft);border-color:var(--line)}
+/* hlcard(주목 품목)는 원래 색을 유지해 눈에 띄게 */
+.section > .cards > .hlcard{background:var(--card)}
 
 /* 고정 내비게이션 — 어느 단계에서든 자유 이동 */
 .nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px;
@@ -124,7 +137,8 @@ tbody tr.click:hover .item-link{border-bottom-color:var(--ink)}
 .intro-grid{display:grid;gap:12px 22px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:10px}
 .intro-block .lab{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;margin-bottom:5px}
 .intro-block .val{font-size:14px;font-weight:600;line-height:1.55}
-.intro-block .chip{display:inline-block;padding:3px 10px;border-radius:20px;background:var(--soft);
+/* 칩 — 소개 카드/주목 카드 어디서든 같은 모양 */
+.chip{display:inline-block;padding:3px 10px;border-radius:20px;background:var(--soft);
   font-size:12.5px;font-weight:600;margin:2px 4px 2px 0;border:1px solid var(--line);color:var(--ink)}
 .intro-block .range{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 .intro-block .range .u{font-size:11.5px;font-weight:500;color:var(--muted);margin-left:4px}
@@ -136,6 +150,8 @@ tbody tr.click:hover .item-link{border-bottom-color:var(--ink)}
 /* 전체·부문 뷰 상단의 주목 품목 카드 — 급등/급락/최다반입 대표를 한눈에 */
 .hlcard{position:relative;cursor:pointer;transition:border-color .12s,transform .12s;padding-top:18px}
 .hlcard:hover{border-color:var(--muted);transform:translateY(-1px)}
+/* hlcard는 우측 상단에 자체 태그(급등/급락/최다반입)를 붙이므로 공용 "자세히 ›" 뱃지는 뺀다 */
+.hlcard.click::after{display:none}
 .hlcard .hl-tag{position:absolute;top:12px;right:14px;font-size:11px;font-weight:700;
   padding:3px 10px;border-radius:20px;letter-spacing:.2px}
 .hlcard .hl-tag.up{background:rgba(208,52,44,.13);color:var(--up);border:1px solid rgba(208,52,44,.35)}
@@ -151,8 +167,8 @@ tbody tr.click:hover .item-link{border-bottom-color:var(--ink)}
 
 .cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px;box-shadow:var(--sh)}
-.card h3{margin:0 0 3px;font-size:14px;font-weight:650}
-.card .sub{font-size:11.5px;color:var(--muted);margin-bottom:12px}
+.card h3{margin:0 0 4px;font-size:16px;font-weight:700;letter-spacing:-.2px}
+.card .sub{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5}
 .card.click{cursor:pointer;transition:border-color .12s,transform .12s}
 .card.click:hover{border-color:var(--muted);transform:translateY(-1px)}
 
@@ -846,11 +862,28 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     return h;
   }
 
+  // H2 뒤에 곧바로 .cards가 오는 패턴을 감지해 .section 래퍼로 묶는다 —
+  // 이렇게 하면 뷰 함수들을 안 건드리고도 "H2가 카드 안에 들어간" 시각 그룹이 된다.
+  function wrapSections(root) {
+    var h2s = Array.prototype.slice.call(root.querySelectorAll('h2'));
+    h2s.forEach(function (h2) {
+      if (h2.parentElement && h2.parentElement.classList.contains('section')) return;
+      var next = h2.nextElementSibling;
+      if (!next || !next.classList.contains('cards')) return;
+      var sec = document.createElement('section');
+      sec.className = 'section';
+      h2.parentNode.insertBefore(sec, h2);
+      sec.appendChild(h2);
+      sec.appendChild(next);
+    });
+  }
+
   function render(push) {
     if (push !== false) syncHistory();
     renderNav();
     var v = $('view');
     v.innerHTML = state.level === 'all' ? viewAll() : state.level === 'sector' ? viewSector() : viewItem();
+    wrapSections(v);
     wireSearch();
     v.querySelectorAll('[data-sector]').forEach(function (el) {
       el.addEventListener('click', function (e) {
