@@ -117,6 +117,22 @@ tbody tr.click:hover .item-link{border-bottom-color:var(--ink)}
 .kpi.acc-cheong{border-left:3px solid var(--cheong)}
 .kpi.acc-chae{border-left:3px solid var(--chae)}
 
+/* 품목 소개 카드 — 상세 페이지 상단에서 그 품목의 정체(주품종·산지·가격대·셀링포인트)를 요약 */
+.intro{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--chae);
+  border-radius:11px;padding:16px 20px 14px;box-shadow:var(--sh);margin:14px 0 6px}
+.intro h3{margin:0 0 12px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:9px;letter-spacing:-.2px}
+.intro-grid{display:grid;gap:12px 22px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:10px}
+.intro-block .lab{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;margin-bottom:5px}
+.intro-block .val{font-size:14px;font-weight:600;line-height:1.55}
+.intro-block .chip{display:inline-block;padding:3px 10px;border-radius:20px;background:var(--soft);
+  font-size:12.5px;font-weight:600;margin:2px 4px 2px 0;border:1px solid var(--line);color:var(--ink)}
+.intro-block .range{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.intro-block .range .u{font-size:11.5px;font-weight:500;color:var(--muted);margin-left:4px}
+.intro-points{border-top:1px dashed var(--line);padding-top:10px;margin-top:4px}
+.intro-points ul{margin:0;padding-left:18px}
+.intro-points li{font-size:12.5px;line-height:1.75;color:var(--ink)}
+.intro-points li b{font-weight:700}
+
 .cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px;box-shadow:var(--sh)}
 .card h3{margin:0 0 3px;font-size:14px;font-weight:650}
@@ -462,11 +478,8 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     var h = '<div class="kpis">';
     h += kpi('반입량', n(t) + 't', '전일 ' + n(p) + 't · <span class="' + cls(p ? (t - p) / p * 100 : null) + '">' + pct(p ? (t - p) / p * 100 : null) + '</span>');
     h += kpi('전주 대비', pct(w ? (t - w) / w * 100 : null), '전주 ' + n(w) + 't');
-    // 검색은 전 부문이므로 품목 수도 전 부문 기준
-    var allItemsAll = [];
-    Object.keys(DATA.sectors).forEach(function (k) { allItemsAll = allItemsAll.concat(DATA.sectors[k]); });
-    var priced = allItemsAll.filter(function (i) { return i.pricePct != null; }).length;
-    h += kpi('품목 수 (전체)', allItemsAll.length + '개', '가격 확인 ' + priced + '개 · ' + state.sector + ' ' + items.length + '개');
+    var priced = items.filter(function (i) { return i.pricePct != null; }).length;
+    h += kpi('품목 수 (' + state.sector + ')', items.length + '개', '가격 확인 ' + priced + '개');
     h += '</div>';
 
     var color = state.sector === '청과' ? 'var(--cheong)' : 'var(--chae)';
@@ -518,10 +531,112 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     return h + '</tbody></table></div>';
   }
 
+  // 품목 상세 상단에 붙는 요약 카드. 주품종·주요 산지·가격대·셀링포인트를 한눈에.
+  function introCard(meta, price, regs) {
+    var sec = state.sector;
+    var accent = sec === '청과' ? 'var(--cheong)' : 'var(--chae)';
+    var vs = (price && price.varieties) ? price.varieties : [];
+    var g1 = vs.filter(function (v) { return v.g === '1'; });
+    if (!g1.length) g1 = vs;
+
+    // 주요 품종: 등급 상 기준 이름별 규격 수가 많은 순, 그다음 평균가 높은 순 상위 4개
+    var nmCount = {}, nmSum = {};
+    g1.forEach(function (v) {
+      nmCount[v.nm] = (nmCount[v.nm] || 0) + 1;
+      nmSum[v.nm] = Math.max(nmSum[v.nm] || 0, v.avg || 0);
+    });
+    var topNms = Object.keys(nmCount).sort(function (a, b) {
+      return nmCount[b] - nmCount[a] || nmSum[b] - nmSum[a];
+    }).slice(0, 4);
+
+    // 주요 산지: '기타' 제외하고 등장 빈도순 상위 4개
+    var regCount = {};
+    regs.forEach(function (r) {
+      if (r.region && r.region !== '기타') regCount[r.region] = (regCount[r.region] || 0) + 1;
+    });
+    var topRegs = Object.keys(regCount).sort(function (a, b) { return regCount[b] - regCount[a]; }).slice(0, 4);
+    var importedOnly = regs.length > 0 && !topRegs.length;
+
+    // 등급 상 기준 품종 평균가의 최소~최대 (가격대 감을 잡기 위함)
+    var avgs = g1.map(function (v) { return v.avg; }).filter(function (x) { return x != null; });
+    var minA = avgs.length ? Math.min.apply(null, avgs) : null;
+    var maxA = avgs.length ? Math.max.apply(null, avgs) : null;
+
+    // 전년비 중앙값 — 원본이 문자열로 올 수 있어 숫자로 강제 변환
+    var j365s = g1.map(function (v) { return v.j365 == null ? null : +v.j365; })
+      .filter(function (x) { return x != null && !isNaN(x); })
+      .sort(function (a, b) { return a - b; });
+    var medJ365 = j365s.length ? j365s[Math.floor(j365s.length / 2)] : null;
+
+    // 같은 부문 내 반입량 순위
+    var siblings = (DATA.sectors[sec] || []).slice()
+      .sort(function (a, b) { return (b.tot || 0) - (a.tot || 0); });
+    var rank = 0;
+    for (var i = 0; i < siblings.length; i++) {
+      if (siblings[i].item === state.item) { rank = i + 1; break; }
+    }
+    var rankShare = siblings.length ? Math.round(rank / siblings.length * 100) : null;
+
+    var h = '<div class="intro" style="border-left-color:' + accent + '">';
+    h += '<h3><span class="badge ' + esc(sec) + '">' + esc(sec) + '</span>' +
+      esc(state.item) + ' <span style="color:var(--muted);font-weight:600">— 한눈에 보기</span></h3>';
+
+    h += '<div class="intro-grid">';
+    h += '<div class="intro-block"><div class="lab">주요 품종</div><div class="val">' +
+      (topNms.length ? topNms.map(function (nm) { return '<span class="chip">' + esc(nm) + '</span>'; }).join('') +
+        (price && price.nVariety > topNms.length ? '<span class="note"> · 외 ' + (price.nVariety - topNms.length) + '종</span>' : '')
+        : '<span class="note">품종 정보 없음</span>') +
+      '</div></div>';
+
+    h += '<div class="intro-block"><div class="lab">주요 산지</div><div class="val">' +
+      (topRegs.length ? topRegs.map(function (r) { return '<span class="chip">' + esc(r) + '</span>'; }).join('')
+        : importedOnly ? '<span class="note">수입 (국내 산지 미구분)</span>'
+        : '<span class="note">산지 정보 없음</span>') +
+      '</div></div>';
+
+    h += '<div class="intro-block"><div class="lab">가격대 · 등급 상</div><div class="val">' +
+      (minA != null
+        ? '<span class="range">' + n(Math.round(minA)) + ' ~ ' + n(Math.round(maxA)) +
+          '<span class="u">원 · 품종 평균가</span></span>'
+        : '<span class="note">—</span>') +
+      '</div></div>';
+    h += '</div>';
+
+    // 셀링포인트 · 3~4개 짧은 문장으로
+    var pts = [];
+    var wPct = meta.week ? (meta.tot - meta.week) / meta.week * 100 : null;
+    pts.push('가락시장 <b>' + esc(sec) + '</b> 반입량 <b>' + (rank || '—') + '위</b>' +
+      (rankShare != null ? ' <span class="note">(상위 ' + rankShare + '%)</span>' : '') +
+      ' · 오늘 <b>' + n(meta.tot) + 't</b>' +
+      ' <span class="note">(전주비 <span class="' + cls(wPct) + '">' + pct(wPct) + '</span>)</span>');
+
+    if (price) {
+      pts.push('대표품종 <b>' + esc(price.repName) + '</b> · 평균가 <b>' + n(price.repAvg) + '원</b>' +
+        (price.repUnit ? ' <span class="note">(' + esc(price.repUnit) + ')</span>' : '') +
+        ' · 오늘 <span class="' + cls(meta.pricePct) + '">' + pct(meta.pricePct) + '</span>');
+    }
+
+    if (medJ365 != null) {
+      pts.push('전년 동기 대비 <span class="' + cls(medJ365) + '"><b>' + pct(medJ365) + '</b></span>' +
+        ' <span class="note">(품종 ' + j365s.length + '개 중앙값)</span>');
+    }
+
+    if (importedOnly) {
+      pts.push('<b>수입 품목</b> — 산지는 통관 이후 집계라 국내 시군구로 나뉘지 않습니다');
+    }
+
+    h += '<div class="intro-points"><ul>';
+    pts.forEach(function (p) { h += '<li>' + p + '</li>'; });
+    h += '</ul></div>';
+    h += '</div>';
+    return h;
+  }
+
   function viewItem() {
     var meta = allItems().filter(function (i) { return i.item === state.item; })[0] || {};
     var price = DATA.prices[state.item];
     var ser = DATA.series[state.item] || {};
+    var regs = (DATA.regions || {})[state.item] || [];
     var color = state.sector === '청과' ? 'var(--cheong)' : 'var(--chae)';
 
     var h = '<div class="kpis">';
@@ -530,6 +645,8 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     if (price) h += kpi('대표 품종 평균가', n(price.repAvg) + '원', esc(price.repName) + ' · ' + esc(price.repUnit || ''));
     h += kpi('전주 대비 물량', pct(meta.week ? (meta.tot - meta.week) / meta.week * 100 : null), '전주 ' + n(meta.week) + 't');
     h += '</div>';
+
+    h += introCard(meta, price, regs);
 
     h += '<h2>추이</h2><div class="cards">';
     h += '<div class="card"><h3>가격 추이</h3>' + challenge('대표 품종 ' + esc(ser.repNm || '—') + ' · 등급 상 평균가 (원)') +
@@ -559,7 +676,6 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
       h += '</tbody></table></div>';
     }
 
-    var regs = (DATA.regions || {})[state.item] || [];
     // 수입 품목은 소스가 산지를 '기타' 하나로만 준다. 그때는 규격별 표와 숫자가
     // 똑같아 정보가 없으므로 표를 접고 이유만 알린다.
     var onlyEtc = regs.length > 0 && regs.every(function (g) { return g.region === '기타'; });
