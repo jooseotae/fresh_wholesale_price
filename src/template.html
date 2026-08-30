@@ -133,6 +133,22 @@ tbody tr.click:hover .item-link{border-bottom-color:var(--ink)}
 .intro-points li{font-size:12.5px;line-height:1.75;color:var(--ink)}
 .intro-points li b{font-weight:700}
 
+/* 전체·부문 뷰 상단의 주목 품목 카드 — 급등/급락/최다반입 대표를 한눈에 */
+.hlcard{position:relative;cursor:pointer;transition:border-color .12s,transform .12s;padding-top:18px}
+.hlcard:hover{border-color:var(--muted);transform:translateY(-1px)}
+.hlcard .hl-tag{position:absolute;top:12px;right:14px;font-size:11px;font-weight:700;
+  padding:3px 10px;border-radius:20px;letter-spacing:.2px}
+.hlcard .hl-tag.up{background:rgba(208,52,44,.13);color:var(--up);border:1px solid rgba(208,52,44,.35)}
+.hlcard .hl-tag.down{background:rgba(18,87,196,.13);color:var(--down);border:1px solid rgba(18,87,196,.35)}
+.hlcard .hl-tag.vol{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.hlcard h3{margin:0 0 8px;font-size:17px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+.hl-metrics{display:flex;gap:18px;margin:2px 0 12px;flex-wrap:wrap}
+.hl-metric{display:flex;flex-direction:column;gap:1px}
+.hl-metric .ml{font-size:11px;color:var(--muted);letter-spacing:.3px}
+.hl-metric b{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.hl-varieties{border-top:1px dashed var(--line);padding-top:10px;font-size:12.5px;line-height:1.7}
+.hl-varieties .lb{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-right:6px}
+
 .cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
 .card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px;box-shadow:var(--sh)}
 .card h3{margin:0 0 3px;font-size:14px;font-weight:650}
@@ -399,6 +415,64 @@ var DATA = /*__DATA__*/ null;
     });
   }
 
+  // 전체·부문 뷰 상단에서 오늘 눈에 띄는 품목을 카드 3장으로 요약. 클릭하면 상세로.
+  function highlightCard(meta, tag, tone) {
+    var price = DATA.prices[meta.item];
+    var vs = (price && price.varieties) ? price.varieties : [];
+    var g1 = vs.filter(function (v) { return v.g === '1'; });
+    if (!g1.length) g1 = vs;
+    var seen = {}, nms = [];
+    g1.forEach(function (v) { if (!seen[v.nm]) { seen[v.nm] = 1; nms.push(v.nm); } });
+    var topNms = nms.slice(0, 3);
+    var extra = price ? Math.max(0, (price.nVariety || nms.length) - topNms.length) : 0;
+    var color = meta.sector === '청과' ? 'var(--cheong)' : 'var(--chae)';
+
+    var h = '<div class="card click hlcard" data-item="' + esc(meta.item) +
+      '" data-sector="' + esc(meta.sector) + '" style="border-left:4px solid ' + color + '">';
+    h += '<div class="hl-tag ' + tone + '">' + esc(tag) + '</div>';
+    h += '<h3>' + esc(meta.item) + ' <span class="badge ' + esc(meta.sector) + '">' +
+      esc(meta.sector) + '</span></h3>';
+    h += '<div class="hl-metrics">' +
+      '<div class="hl-metric"><span class="ml">반입량</span><b>' + n(meta.tot) + 't</b></div>' +
+      '<div class="hl-metric"><span class="ml">전일비 가격</span><b class="' + cls(meta.pricePct) + '">' +
+      pct(meta.pricePct) + '</b></div>' +
+      '<div class="hl-metric"><span class="ml">전일비 물량</span><b class="' + cls(meta.volPct) + '">' +
+      pct(meta.volPct) + '</b></div>' +
+      '</div>';
+    h += '<div class="hl-varieties"><span class="lb">주요 품종</span>';
+    if (topNms.length) {
+      topNms.forEach(function (nm) { h += '<span class="chip">' + esc(nm) + '</span>'; });
+      if (extra) h += '<span class="note"> · 외 ' + extra + '종</span>';
+    } else {
+      h += '<span class="note">품종 정보 없음</span>';
+    }
+    h += '</div>';
+    if (price) {
+      h += '<div class="note" style="margin-top:8px">대표 <b>' + esc(price.repName) + '</b> · ' +
+        n(price.repAvg) + '원 <span style="opacity:.75">(' + esc(price.repUnit || '') + ')</span></div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  // 급등/급락/최다반입 각 하나. 반입량 상위군 안에서만 뽑아 소물량 노이즈를 뺀다.
+  function pickHighlights(pool, allPool) {
+    var priced = pool.filter(function (i) { return i.pricePct != null; });
+    if (!priced.length) return [];
+    var bySurge = priced.slice().sort(function (a, b) { return b.pricePct - a.pricePct; });
+    var picks = [];
+    var used = {};
+    var gainer = bySurge[0];
+    if (gainer && gainer.pricePct > 0) { picks.push({ item: gainer, tag: '급등 최고 +' + gainer.pricePct.toFixed(1) + '%', tone: 'up' }); used[gainer.item] = 1; }
+    var loser = bySurge[bySurge.length - 1];
+    if (loser && loser.pricePct < 0 && !used[loser.item]) { picks.push({ item: loser, tag: '급락 최고 ' + loser.pricePct.toFixed(1) + '%', tone: 'down' }); used[loser.item] = 1; }
+    var byVol = allPool.slice().sort(function (a, b) { return (b.tot || 0) - (a.tot || 0); });
+    for (var i = 0; i < byVol.length; i++) {
+      if (!used[byVol[i].item]) { picks.push({ item: byVol[i], tag: '반입량 최다 ' + n(byVol[i].tot) + 't', tone: 'vol' }); used[byVol[i].item] = 1; break; }
+    }
+    return picks;
+  }
+
   function viewAll() {
     var items = allItems();
     var total = items.reduce(function (a, b) { return a + (b.tot || 0); }, 0);
@@ -427,6 +501,14 @@ var DATA = /*__DATA__*/ null;
     });
     h += kpi('급등락 품목', surge.length + '건', '부문별 반입량 상위 ' + MAJOR_PER_SECTOR + '품목 중 ±10% 초과');
     h += '</div>';
+
+    var picks = pickHighlights(major, items);
+    if (picks.length) {
+      h += '<h2>오늘의 주목 품목 <span style="color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0"> · 카드를 누르면 상세로</span></h2>';
+      h += '<div class="cards">';
+      picks.forEach(function (p) { h += highlightCard(p.item, p.tag, p.tone); });
+      h += '</div>';
+    }
 
     var dv = major.slice().sort(function (a, b) { return b.pricePct - a.pricePct; });
     dv = dv.slice(0, 7).concat(dv.slice(-7)).filter(function (x, i, a) { return a.indexOf(x) === i; });
@@ -481,6 +563,16 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     var priced = items.filter(function (i) { return i.pricePct != null; }).length;
     h += kpi('품목 수 (' + state.sector + ')', items.length + '개', '가격 확인 ' + priced + '개');
     h += '</div>';
+
+    // 부문 내 반입량 상위군에서만 급등락을 뽑는다 — 소물량 노이즈 배제
+    var sectorMajor = items.slice(0, MAJOR_PER_SECTOR).filter(function (i) { return i.pricePct != null; });
+    var picks = pickHighlights(sectorMajor, items);
+    if (picks.length) {
+      h += '<h2>오늘의 주목 품목 <span style="color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0"> · 카드를 누르면 상세로</span></h2>';
+      h += '<div class="cards">';
+      picks.forEach(function (p) { h += highlightCard(p.item, p.tag, p.tone); });
+      h += '</div>';
+    }
 
     var color = state.sector === '청과' ? 'var(--cheong)' : 'var(--chae)';
     var rows = items.slice(0, DATA.topN).map(function (i) {
