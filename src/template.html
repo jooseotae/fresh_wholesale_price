@@ -123,10 +123,10 @@ tbody tr.click:hover .item-link{border-bottom-color:var(--ink)}
 
 /* 텍스트박스 KPI */
 .kpis{display:grid;gap:11px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:6px}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;box-shadow:var(--sh)}
-.kpi .k{font-size:11.5px;color:var(--muted);letter-spacing:.3px}
-.kpi .v{font-size:24px;font-weight:700;letter-spacing:-.6px;margin-top:3px;font-variant-numeric:tabular-nums}
-.kpi .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 20px;box-shadow:var(--sh)}
+.kpi .k{font-size:14px;font-weight:650;color:var(--ink);letter-spacing:.1px}
+.kpi .v{font-size:28px;font-weight:750;letter-spacing:-.7px;margin-top:5px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12.5px;color:var(--ink);opacity:.75;margin-top:4px}
 .kpi.acc-cheong{border-left:3px solid var(--cheong)}
 .kpi.acc-chae{border-left:3px solid var(--chae)}
 
@@ -148,20 +148,20 @@ tbody tr.click:hover .item-link{border-bottom-color:var(--ink)}
 .intro-points li b{font-weight:700}
 
 /* 전체·부문 뷰 상단의 주목 품목 카드 — 급등/급락/최다반입 대표를 한눈에 */
-.hlcard{position:relative;cursor:pointer;transition:border-color .12s,transform .12s;padding-top:18px}
+.hlcard{position:relative;cursor:pointer;transition:border-color .12s,transform .12s;padding:22px 22px 20px}
 .hlcard:hover{border-color:var(--muted);transform:translateY(-1px)}
 /* hlcard는 우측 상단에 자체 태그(급등/급락/최다반입)를 붙이므로 공용 "자세히 ›" 뱃지는 뺀다 */
 .hlcard.click::after{display:none}
-.hlcard .hl-tag{position:absolute;top:12px;right:14px;font-size:11px;font-weight:700;
+.hlcard .hl-tag{position:absolute;top:16px;right:18px;font-size:12.5px;font-weight:700;padding:5px 11px;
   padding:3px 10px;border-radius:20px;letter-spacing:.2px}
 .hlcard .hl-tag.up{background:rgba(208,52,44,.13);color:var(--up);border:1px solid rgba(208,52,44,.35)}
 .hlcard .hl-tag.down{background:rgba(18,87,196,.13);color:var(--down);border:1px solid rgba(18,87,196,.35)}
 .hlcard .hl-tag.vol{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
-.hlcard h3{margin:0 0 8px;font-size:17px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
-.hl-metrics{display:flex;gap:18px;margin:2px 0 12px;flex-wrap:wrap}
+.hlcard h3{margin:0 0 14px;font-size:22px;font-weight:750;letter-spacing:-.4px;display:flex;align-items:center;gap:10px}
+.hl-metrics{display:flex;gap:26px;margin:6px 0 4px;flex-wrap:wrap}
 .hl-metric{display:flex;flex-direction:column;gap:1px}
-.hl-metric .ml{font-size:11px;color:var(--muted);letter-spacing:.3px}
-.hl-metric b{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.hl-metric .ml{font-size:12.5px;color:var(--muted);letter-spacing:.3px;margin-bottom:2px}
+.hl-metric b{font-size:26px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
 .hl-varieties{border-top:1px dashed var(--line);padding-top:10px;font-size:12.5px;line-height:1.7}
 .hl-varieties .lb{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-right:6px}
 
@@ -455,18 +455,6 @@ var DATA = /*__DATA__*/ null;
       '<div class="hl-metric"><span class="ml">전일비 물량</span><b class="' + cls(meta.volPct) + '">' +
       pct(meta.volPct) + '</b></div>' +
       '</div>';
-    h += '<div class="hl-varieties"><span class="lb">주요 품종</span>';
-    if (topNms.length) {
-      topNms.forEach(function (nm) { h += '<span class="chip">' + esc(nm) + '</span>'; });
-      if (extra) h += '<span class="note"> · 외 ' + extra + '종</span>';
-    } else {
-      h += '<span class="note">품종 정보 없음</span>';
-    }
-    h += '</div>';
-    if (price) {
-      h += '<div class="note" style="margin-top:8px">대표 <b>' + esc(price.repName) + '</b> · ' +
-        n(price.repAvg) + '원 <span style="opacity:.75">(' + esc(price.repUnit || '') + ')</span></div>';
-    }
     h += '</div>';
     return h;
   }
