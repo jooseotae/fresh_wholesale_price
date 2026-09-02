@@ -78,21 +78,36 @@ def sector_of(buryu: str, item_nm: str) -> str:
     return "채소"
 
 
-def load_volumes(conn: sqlite3.Connection, date: str) -> list[dict]:
-    rows = conn.execute(
-        """SELECT buryu, item_nm, tot, js_day, js_week
-           FROM volume_daily WHERE trade_date=? AND tot IS NOT NULL AND tot > 0
-           ORDER BY tot DESC""",
-        (date,),
+def load_volumes(conn: sqlite3.Connection, _unused: str) -> tuple[list[dict], dict[str, str]]:
+    """부문별 최신 거래일로 각각 조회한다.
+
+    08시 채소 갱신 뒤 아직 청과가 안 온 상태에서는 채소=오늘, 청과=어제 데이터.
+    한 날짜로 잡으면 청과가 통째로 빠져 사이드 내비의 청과 칩까지 사라진다.
+    부문마다 자기 최신 날짜를 쓰는 게 실사용 관점에서 맞다.
+    """
+    # 각 부문(재분류 반영)의 최신 거래일 찾기
+    all_rows = conn.execute(
+        """SELECT trade_date, buryu, item_nm, tot, js_day, js_week
+           FROM volume_daily WHERE tot IS NOT NULL AND tot > 0"""
     ).fetchall()
+    latest: dict[str, str] = {}
+    for d, buryu, nm, tot, jsd, jsw in all_rows:
+        sec = sector_of(buryu, nm)
+        if sec not in latest or d > latest[sec]:
+            latest[sec] = d
+    # 각 부문 최신일에 해당하는 행만 남기고 정렬
     out = []
-    for buryu, nm, tot, jsd, jsw in rows:
+    for d, buryu, nm, tot, jsd, jsw in all_rows:
+        sec = sector_of(buryu, nm)
+        if latest.get(sec) != d:
+            continue
         out.append({
-            "sector": sector_of(buryu, nm), "buryu": buryu, "item": nm,
+            "sector": sec, "buryu": buryu, "item": nm,
             "tot": tot, "prev": jsd, "week": jsw,
             "volPct": ((tot - jsd) / jsd * 100) if jsd else None,
         })
-    return out
+    out.sort(key=lambda x: -(x["tot"] or 0))
+    return out, latest
 
 
 def rep_variety(conn: sqlite3.Connection, rptv: str) -> tuple[str, str] | None:
@@ -131,20 +146,32 @@ def unit_price(avg: int | None, unit: str | None, unit_qty) -> tuple[int, str] |
     return round(avg / qty), base
 
 
-def load_prices(conn: sqlite3.Connection, date: str) -> dict[str, dict]:
-    """대표품목별 요약. 변동률은 품종별 전일대비의 중앙값을 쓴다.
+def load_prices(conn: sqlite3.Connection, sector_dates: dict[str, str]) -> dict[str, dict]:
+    """대표품목별 요약. 부문별 최신 거래일에서 각각 읽는다.
 
-    품종마다 단위(4kg상자/10kg망대…)가 달라 절대가 평균은 의미가 없다.
-    반면 전일대비 비율은 단위와 무관하므로 대표품목 단위로 합칠 수 있다.
+    청과가 오늘 미확정이면 어제 것을, 채소는 오늘 것을 그대로 쓴다.
+    (변동률은 품종별 전일대비 중앙값. 품종마다 단위가 달라 절대가 평균은 무의미.)
     """
-    # 4등급(특·상·보통·하)을 모두 읽는다. 요약 지표는 기준 등급인 '상'으로 내되,
-    # 품종별 표에서는 등급을 골라 볼 수 있게 전부 실어 보낸다.
-    rows = conn.execute(
-        """SELECT rptv_nm, item_cd, item_nm, unit, mi_p, av_p, ma_p, pav_rate, j7_rate, j365_rate,
-                  unit_qty, grade_cd, grade_nm
-           FROM price_detail WHERE trade_date=? AND av_p > 0""",
-        (date,),
-    ).fetchall()
+    # 부문별 최신일에 해당하는 대표품목만 남기려면, 품목명으로 부문을 판별해 필터한다
+    from collections import defaultdict
+    rows_by_date: dict[str, list] = defaultdict(list)
+    dates_needed = set(sector_dates.values())
+    if not dates_needed:
+        return {}
+    q = "SELECT rptv_nm, item_cd, item_nm, unit, mi_p, av_p, ma_p, pav_rate, j7_rate, j365_rate, unit_qty, grade_cd, grade_nm, trade_date FROM price_detail WHERE trade_date IN (" + ",".join("?" * len(dates_needed)) + ") AND av_p > 0"
+    for r in conn.execute(q, tuple(dates_needed)):
+        rows_by_date[r[13]].append(r)
+    # 재분류가 필요한 품목의 부문 판별용 룩업 (volume_daily 기준)
+    vol_sec: dict[str, str] = {}
+    for nm, buryu in conn.execute("SELECT DISTINCT item_nm, buryu FROM volume_daily"):
+        vol_sec[nm] = sector_of(buryu, nm)
+    rows = []
+    for rptv_date, row_list in rows_by_date.items():
+        for r in row_list:
+            rptv = r[0]
+            sec = vol_sec.get(rptv, "채소")
+            if sector_dates.get(sec) == rptv_date:
+                rows.append(r[:13])   # trade_date 컬럼 제외
 
     grouped: dict[str, list] = {}
     for r in rows:
@@ -355,8 +382,8 @@ def build_payload(conn: sqlite3.Connection) -> dict:
     if not vdate and not pdate:
         raise SystemExit("데이터가 없습니다. src/collect_bix5.py 를 먼저 실행하세요.")
 
-    volumes = load_volumes(conn, vdate) if vdate else []
-    prices = load_prices(conn, pdate) if pdate else {}
+    volumes, vol_dates = (load_volumes(conn, vdate) if vdate else ([], {}))
+    prices = load_prices(conn, vol_dates) if vol_dates else {}
 
     # 반입량 기준으로 품목을 엮는다. 가격이 없는 품목도 물량은 보여준다.
     for v in volumes:
@@ -383,7 +410,9 @@ def build_payload(conn: sqlite3.Connection) -> dict:
 
     return {
         "volumeDate": vdate,
+        "volumeDates": vol_dates,
         "priceDate": pdate,
+        "priceDates": vol_dates,
         "updated": data_updated_by_sector(conn),
         "generated": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "sectors": sectors,
