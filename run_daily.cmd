@@ -2,11 +2,14 @@
 rem Garak wholesale price - daily refresh
 rem
 rem Scheduler runs this THREE times a day:
-rem   08:00  run_daily.cmd 채소   -- vegetable auctions confirmed overnight
-rem   11:00  run_daily.cmd 청과   -- fruit auctions confirmed by 11am
-rem   14:00  run_daily.cmd        -- final full refresh (no arg = both)
+rem   08:00  run_daily.cmd <vegetable>  -- vegetable auctions confirmed overnight
+rem   11:00  run_daily.cmd <fruit>      -- fruit auctions confirmed by 11am
+rem   14:00  run_daily.cmd              -- final full refresh (no arg = both)
 rem
-rem NOTE: keep this file ASCII-only. cmd.exe reads it as the OEM codepage.
+rem The sector argument is Korean text supplied by Task Scheduler, never written
+rem here: this file MUST stay ASCII-only. cmd.exe parses it byte-by-byte in the
+rem OEM codepage, and the "chcp 65001" below switches codepage mid-parse -- any
+rem non-ASCII byte in the file loses alignment and gets run as a command.
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
