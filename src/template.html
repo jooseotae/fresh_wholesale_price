@@ -208,20 +208,22 @@ tbody tr.click:hover .item-link{border-bottom-color:var(--foreground)}
 /* ---- 품목 소개 카드 ---- */
 .intro{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--chae);
   border-radius:var(--radius-xl);padding:18px;box-shadow:var(--shadow-xs);margin:14px 0 6px}
-.intro h3{margin:0 0 14px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;
+.intro h3{margin:0 0 16px;font-size:20px;font-weight:650;display:flex;align-items:center;gap:9px;
   letter-spacing:-.015em}
 .intro-grid{display:grid;gap:14px 22px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:12px}
-.intro-block .lab{font-size:11px;font-weight:500;color:var(--muted-foreground);letter-spacing:.06em;
+.intro-block .lab{font-size:12px;font-weight:600;color:var(--muted-foreground);letter-spacing:.05em;
   text-transform:uppercase;margin-bottom:6px}
-.intro-block .val{font-size:14px;font-weight:500;line-height:1.55}
+.intro-block .val{font-size:15.5px;font-weight:500;line-height:1.6}
 /* Badge variant=secondary */
 .chip{display:inline-block;padding:2px 9px;border-radius:var(--radius-sm);background:var(--secondary);
   font-size:12px;font-weight:500;margin:2px 4px 2px 0;border:1px solid var(--border);color:var(--foreground)}
-.intro-block .range{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
-.intro-block .range .u{font-size:11.5px;font-weight:400;color:var(--muted-foreground);margin-left:4px}
-.intro-points{border-top:1px solid var(--border);padding-top:12px;margin-top:4px}
+.intro-block .range{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.intro-block .range .u{font-size:12.5px;font-weight:400;color:var(--muted-foreground);margin-left:4px}
+.intro-block .chip{font-size:13.5px;padding:4px 12px;font-weight:600}
+.intro-block .val > .note{font-size:13.5px}
+.intro-points{border-top:1px solid var(--border);padding-top:14px;margin-top:6px}
 .intro-points ul{margin:0;padding-left:18px}
-.intro-points li{font-size:12.5px;line-height:1.75;color:var(--muted-foreground)}
+.intro-points li{font-size:14px;line-height:1.85;color:var(--muted-foreground)}
 .intro-points li b{font-weight:600;color:var(--foreground)}
 
 /* ---- 주목 품목 카드 ---- */
@@ -773,9 +775,14 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
       esc(state.item) + ' <span style="color:var(--muted);font-weight:600">— 한눈에 보기</span></h3>';
 
     h += '<div class="intro-grid">';
+    // 품종이 하나뿐이고 그 이름이 품목명과 같으면 제목("가지 — 한눈에 보기")을 그대로
+    // 반복하는 셈이라 칩을 빼고, 대신 단일 품종이라는 사실 자체를 알려준다.
+    var soleSameName = topNms.length === 1 && topNms[0] === state.item &&
+      (!price || price.nVariety <= 1);
     h += '<div class="intro-block"><div class="lab">주요 품종</div><div class="val">' +
-      (topNms.length ? topNms.map(function (nm) { return '<span class="chip">' + esc(nm) + '</span>'; }).join('') +
-        (price && price.nVariety > topNms.length ? '<span class="note"> · 외 ' + (price.nVariety - topNms.length) + '종</span>' : '')
+      (soleSameName ? '<span class="note">단일 품종 · 품종 구분 없음</span>'
+        : topNms.length ? topNms.map(function (nm) { return '<span class="chip">' + esc(nm) + '</span>'; }).join('') +
+          (price && price.nVariety > topNms.length ? '<span class="note"> · 외 ' + (price.nVariety - topNms.length) + '종</span>' : '')
         : '<span class="note">품종 정보 없음</span>') +
       '</div></div>';
 
