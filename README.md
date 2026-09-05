@@ -4,6 +4,8 @@
 정적 HTML 대시보드로 만든다. 사내 SAP 리포트(매출·손실율)가 **결과**만 보여주는 데 반해,
 이건 그 결과를 만드는 **선행 지표**(도매 경락가·반입량)를 본다.
 
+**대시보드 → https://jooseotae-freshwholesaleprice.vercel.app**
+
 설계 배경은 [docs/PRD.md](docs/PRD.md), API 호출 규약은 [docs/SOURCES.md](docs/SOURCES.md) 참고.
 
 ---
@@ -33,7 +35,8 @@
 
 ## 쓰는 법
 
-Vercel에 배포돼 있다. 배포 주소는 Vercel 프로젝트 페이지에서 확인한다.
+**https://jooseotae-freshwholesaleprice.vercel.app**
+
 로컬에서 보려면 저장소 루트의 `index.html` 을 그대로 열어도 똑같이 동작한다 (서버 불필요).
 
 데이터는 작업 스케줄러가 하루 세 번 갱신한다.
