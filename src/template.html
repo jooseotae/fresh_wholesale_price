@@ -303,6 +303,22 @@ td.gcell{white-space:nowrap}
 .note{font-size:12px;color:var(--muted-foreground);margin-top:8px;line-height:1.6}
 .empty{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-xl);padding:32px;
   text-align:center;color:var(--muted-foreground);box-shadow:var(--shadow-xs)}
+/* 신선도 경고 — 이 배너는 빌드 때가 아니라 브라우저에서 켜진다.
+   푸시가 막히면 경고가 든 새 HTML 자체가 배포되지 못하므로, 낡은 사본이
+   스스로 낡았다고 말할 수 있어야 한다. 판단 재료는 HTML에 박힌 기준일뿐이다. */
+.stale{display:flex;align-items:flex-start;gap:10px;padding:13px 16px;border-radius:var(--radius-lg);
+  margin-bottom:16px;font-size:13.5px;line-height:1.6;border:1px solid}
+.stale .ic{font-size:16px;line-height:1.35;flex:0 0 auto}
+.stale b{font-weight:650}
+.stale .sub{display:block;font-size:12.5px;opacity:.85;margin-top:3px}
+/* 3~6일: 휴장일 수도 있어 단정하지 않는다 */
+.stale.warn{background:rgba(250,204,21,.12);color:#713f12;border-color:rgba(202,138,4,.32)}
+/* 7일+: 14개월 이력상 정상인 적이 없는 구간이라 단정해도 된다 */
+.stale.alert{background:var(--up-a);color:var(--up);border-color:var(--up-b)}
+.stale.alert b{color:var(--up)}
+@media (prefers-color-scheme:dark){
+  .stale.warn{background:rgba(250,204,21,.09);color:#fde68a;border-color:rgba(250,204,21,.22)}
+}
 /* Alert (warning) */
 .banner{padding:12px 15px;border-radius:var(--radius-lg);margin-bottom:16px;font-size:12.5px;
   background:rgba(250,204,21,.10);color:#713f12;border:1px solid rgba(202,138,4,.28)}
@@ -329,6 +345,7 @@ footer b{color:var(--foreground);font-weight:500}
     </div>
     <button class="bigback" id="bigback" hidden><span class="ar">←</span><span id="bigbackLabel">뒤로</span></button>
   </div>
+  <div class="stale" id="stale" hidden></div>
   <div class="nav" id="nav"></div>
   <div id="view"></div>
   <div class="news" id="news"></div>
@@ -1123,6 +1140,33 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
   if (!updHtml) updHtml = '갱신 ' + esc(DATA.generated);
   $('meta').innerHTML = '기준일 <b>' + esc(DATA.priceDate || DATA.volumeDate || '—') + '</b>' +
     ' <span class="meta-sep">·</span> ' + updHtml;
+
+  // 기준일이 얼마나 지났는지 브라우저 시계로 잰다.
+  // 2025-07 ~ 2026-09 실측: 정상 거래 공백은 최대 5일(추석)이고, 아침 수집 전이면
+  // 화면상 경과일이 6일까지 벌어질 수 있다. 그래서 7일부터는 단정한다.
+  (function staleCheck() {
+    var el = $('stale');
+    if (!el) return;
+    var raw = DATA.priceDate || DATA.volumeDate;
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(raw || ''));
+    if (!m) return;
+    var base = new Date(+m[1], +m[2] - 1, +m[3]);
+    var n = new Date();
+    var days = Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - base) / 86400000);
+    if (!(days >= 3)) return;   // 시계가 어긋나 음수가 나와도 여기서 걸러진다
+
+    var alert = days >= 7;
+    el.className = 'stale ' + (alert ? 'alert' : 'warn');
+    el.innerHTML = '<span class="ic">' + (alert ? '⚠' : '⏱') + '</span><span>' +
+      (alert
+        ? '<b>' + days + '일째 데이터가 갱신되지 않았습니다.</b>' +
+          '<span class="sub">자동 갱신이 멈춘 상태로 보입니다. 수집 PC가 켜져 있는지, ' +
+          'GitHub 푸시가 막히지 않았는지 확인이 필요합니다.</span>'
+        : '기준일이 <b>' + days + '일 전</b>입니다.' +
+          '<span class="sub">연휴·휴장 때는 정상입니다. 평일이 계속 지나는데도 그대로면 갱신이 멈춘 것입니다.</span>') +
+      '</span>';
+    el.hidden = false;
+  })();
 
   $('bigback').addEventListener('click', function () {
     // 히스토리를 소비해 브라우저 뒤로가기와 동작을 맞춘다
