@@ -40,15 +40,25 @@ if "%~1"=="" (
     set RC_NEWS=%ERRORLEVEL%
 )
 
-rem 5) Rebuild the dashboard
+rem 5) Backfill days missed while the PC was off - final refresh only, so the
+rem    08:00/11:00 sector runs keep their short window. Days already collected
+rem    are skipped; so are days already attempted, since a market holiday has
+rem    no data at the source and would otherwise be re-queried every day.
+if "%~1"=="" (
+    "%PY%" src\backfill.py
+    set RC_FILL=%ERRORLEVEL%
+)
+
+rem 6) Rebuild the dashboard
 "%PY%" src\build_v2.py
 
 if not "%RC_BIX5%"=="0"   echo [WARN] BIX5 collection failed
 if defined RC_LEGACY if not "%RC_LEGACY%"=="0" echo [WARN] legacy collection failed
 if not "%RC_UNIT%"=="0"   echo [WARN] unit-price collection failed
 if defined RC_NEWS if not "%RC_NEWS%"=="0" echo [WARN] news collection failed
+if defined RC_FILL if not "%RC_FILL%"=="0" echo [WARN] backfill failed
 
-rem 6) Auto-commit and push so Vercel redeploys with fresh data
+rem 7) Auto-commit and push so Vercel redeploys with fresh data
 where git >nul 2>&1
 if errorlevel 1 goto :skip_git
 
