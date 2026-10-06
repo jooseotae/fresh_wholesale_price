@@ -317,14 +317,21 @@ def load_news(conn: sqlite3.Connection, ref: str | None, span: int = 5) -> tuple
     게시물이 매일 올라오지 않아 D-5가 너무 얇으면 D-10, D-20까지 넓히고,
     넓혔다는 사실을 대시보드에 표시한다.
     """
+    # atc_sn 의 'rss:' 접두사가 출처를 가른다 — 공사 게시판이냐 전문지냐.
+    SELECT = ("SELECT posted, board, title, url, "
+              "CASE WHEN atc_sn LIKE 'rss:%' THEN 'press' ELSE 'gov' END FROM news")
+
+    def rowdicts(rows) -> list[dict]:
+        return [{"posted": a, "board": b, "title": c, "url": d, "src": e}
+                for a, b, c, d, e in rows]
+
     def window(days: int) -> list[dict]:
         base = dt.date.fromisoformat(ref)
         rows = conn.execute(
-            """SELECT posted, board, title, url FROM news
-               WHERE posted BETWEEN ? AND ? ORDER BY posted DESC, atc_sn DESC""",
+            SELECT + " WHERE posted BETWEEN ? AND ? ORDER BY posted DESC, atc_sn DESC",
             ((base - dt.timedelta(days=days)).isoformat(), base.isoformat()),
         ).fetchall()
-        return [{"posted": a, "board": b, "title": c, "url": d} for a, b, c, d in rows]
+        return rowdicts(rows)
 
     if ref:
         for days in (span, 10, 20):
@@ -332,10 +339,8 @@ def load_news(conn: sqlite3.Connection, ref: str | None, span: int = 5) -> tuple
             if len(rows) >= 4 or (rows and days == 20):
                 return rows, days
 
-    rows = conn.execute(
-        "SELECT posted, board, title, url FROM news ORDER BY posted DESC LIMIT 8"
-    ).fetchall()
-    return [{"posted": a, "board": b, "title": c, "url": d} for a, b, c, d in rows], 0
+    rows = conn.execute(SELECT + " ORDER BY posted DESC LIMIT 8").fetchall()
+    return rowdicts(rows), 0
 
 
 def _fmt_ts(ts: str | None) -> str | None:

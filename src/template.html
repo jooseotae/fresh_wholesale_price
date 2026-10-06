@@ -185,6 +185,16 @@ tbody tr.click:hover .item-link{border-bottom-color:var(--foreground)}
 .newsitem .b{font-size:11.5px;color:var(--muted-foreground);background:var(--secondary);
   border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 8px;
   font-weight:500;white-space:nowrap}
+/* 공사가 직접 올린 자료인지 전문지 기사인지 한눈에 갈라 보이게 한다.
+   같은 사안도 출처에 따라 무게가 다르다. */
+.newsitem.gov{border-left:3px solid var(--chae)}
+.newsitem.gov .b{color:var(--chae);border-color:var(--chae)}
+.newsitem.press{border-left:3px solid var(--muted-foreground)}
+.news-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  font-size:11.5px;color:var(--muted-foreground);margin:0 0 11px}
+.news-legend i{display:inline-flex;align-items:center;gap:6px;font-style:normal}
+.news-legend i::before{content:"";width:3px;height:12px;border-radius:9999px;background:currentColor}
+.news-legend .lg-gov{color:var(--chae)}
 
 /* ---- Breadcrumb ---- */
 .crumb{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:16px;font-size:13px}
@@ -1152,9 +1162,13 @@ challenge('막대를 클릭하면 그 품목 상세로 · 카드 여백을 클�
     var h = '<h2 style="font-size:14.5px;color:var(--chae);letter-spacing:.4px">📰 농산물 뉴스 · ' +
       (span ? '최근 ' + span + '일 (D-' + span + ' ~ D)' : '최근 자료') + '</h2>';
     if (span > 5) h += '<div class="note" style="margin:0 0 10px">최근 5일 내 게시물이 적어 ' + span + '일로 넓혔습니다.</div>';
+    var nGov = list.filter(function (a) { return a.src !== 'press'; }).length;
+    h += '<div class="news-legend"><i class="lg-gov">공사 자료 ' + nGov + '건</i>' +
+      '<i>농업 전문지 ' + (list.length - nGov) + '건</i></div>';
     h += '<div class="newslist">';
-    list.slice(0, 12).forEach(function (a) {
-      h += '<a class="newsitem" href="' + esc(a.url) + '" target="_blank" rel="noopener">' +
+    list.slice(0, 14).forEach(function (a) {
+      h += '<a class="newsitem ' + (a.src === 'press' ? 'press' : 'gov') + '"' +
+        ' href="' + esc(a.url) + '" target="_blank" rel="noopener noreferrer">' +
         '<span class="d">' + esc((a.posted || '').slice(5)) + '</span>' +
         '<span class="t">' + esc(a.title) + '</span>' +
         '<span class="b">' + esc(a.board) + '</span></a>';
