@@ -49,7 +49,7 @@ SKIP = re.compile(r"웹소설|공모전|이벤트 당첨")
 FEEDS = {
     "한국농어민신문": "https://www.agrinet.co.kr/rss/allArticle.xml",
     "농수축산신문": "https://www.aflnews.co.kr/rss/allArticle.xml",
-    "한국농정신문": "http://www.ikpnews.net/rss/allArticle.xml",
+    "한국농정신문": "https://www.ikpnews.net/rss/allArticle.xml",
     "농업인신문": "https://www.nongupin.co.kr/rss/allArticle.xml",
 }
 
@@ -91,6 +91,7 @@ _LINK = re.compile(r'href="([^"]*view\.do[^"]*)"')
 _DATE = re.compile(r"(20\d{2}-\d{2}-\d{2})")
 _SN = re.compile(r"atcSn=(\d+)")
 _TAG = re.compile(r"<[^>]+>")
+_SAFE_URL = re.compile(r"https?://", re.I)
 
 
 def setup_logging() -> None:
@@ -184,7 +185,10 @@ def parse_feed(outlet: str, url: str, produce: re.Pattern) -> tuple[list[dict], 
         title = _tag(item, "title")
         link = _tag(item, "link")
         posted = _tag(item, "pubDate")[:10]
-        if not (title and link and _DATE.fullmatch(posted)):
+        # 이 link 는 외신 RSS 가 주는 값이고 그대로 href 에 들어간다.
+        # http(s) 가 아니면 버린다 — javascript: 가 섞여 들어오면 클릭 한 번에
+        # 대시보드에서 스크립트가 돈다.
+        if not (title and link and _DATE.fullmatch(posted) and _SAFE_URL.match(link)):
             continue
 
         blob = title + " " + _tag(item, "description")[:400]
@@ -196,6 +200,10 @@ def parse_feed(outlet: str, url: str, produce: re.Pattern) -> tuple[list[dict], 
         # 실제 시황 기사다. 이 조건 하나로 연재물·사설·기관 홍보가 걸러진다.
         if not (SIGNAL.search(title) or produce.search(title)):
             continue
+
+        # 일부 매체는 기사 링크를 http 로 준다. 같은 주소가 https 로도 열리므로
+        # 승격해 둔다 (사용자가 클릭해 이동하는 구간을 평문으로 두지 않는다).
+        link = re.sub(r"^http://", "https://", link, flags=re.I)
 
         idx = re.search(r"idxno=(\d+)", link)
         out.append({
