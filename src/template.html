@@ -308,6 +308,8 @@ td.gcell{white-space:nowrap}
    스스로 낡았다고 말할 수 있어야 한다. 판단 재료는 HTML에 박힌 기준일뿐이다. */
 .stale{display:flex;align-items:flex-start;gap:10px;padding:13px 16px;border-radius:var(--radius-lg);
   margin-bottom:16px;font-size:13.5px;line-height:1.6;border:1px solid}
+/* display:flex 가 브라우저 기본 [hidden]{display:none} 을 이겨버린다. 되돌린다. */
+.stale[hidden]{display:none}
 .stale .ic{font-size:16px;line-height:1.35;flex:0 0 auto}
 .stale b{font-weight:650}
 .stale .sub{display:block;font-size:12.5px;opacity:.85;margin-top:3px}
@@ -319,6 +321,23 @@ td.gcell{white-space:nowrap}
 @media (prefers-color-scheme:dark){
   .stale.warn{background:rgba(250,204,21,.09);color:#fde68a;border-color:rgba(250,204,21,.22)}
 }
+/* 원문 사이트(경매 및 정가수의 현황) 바로가기.
+   공사 사이트의 제목 색(#0092D7)과 로고 알약의 청록->남색 그라데이션을
+   그대로 가져와, 우리 대시보드가 아니라 원본으로 간다는 걸 생김새로 알린다.
+   그래서 이 카드만 다크모드에서도 흰 바탕을 유지한다. */
+.extlink{display:inline-flex;flex-direction:column;align-items:center;gap:9px;
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius-xl);
+  padding:14px 24px;margin-bottom:16px;text-decoration:none;box-shadow:var(--shadow-xs);
+  transition:box-shadow .15s ease,transform .15s ease,border-color .15s ease}
+.extlink:hover{box-shadow:var(--shadow-sm);transform:translateY(-1px);border-color:#0092D7}
+.extlink .el-title{display:flex;align-items:center;gap:7px;
+  font-size:18px;font-weight:700;color:#0092D7;letter-spacing:-.02em;line-height:1.25}
+.extlink .el-title .ext{font-size:12px;font-weight:600;opacity:.75}
+.extlink .el-org{display:inline-flex;align-items:center;gap:7px;
+  background:linear-gradient(90deg,#3E838D 0%,#3B4D93 100%);color:#fff;
+  font-size:13.5px;font-weight:600;padding:8px 18px;border-radius:8px;letter-spacing:-.01em}
+.extlink .el-org svg{flex:0 0 auto}
+@media (max-width:640px){.extlink{width:100%}}
 /* Alert (warning) */
 .banner{padding:12px 15px;border-radius:var(--radius-lg);margin-bottom:16px;font-size:12.5px;
   background:rgba(250,204,21,.10);color:#713f12;border:1px solid rgba(202,138,4,.28)}
@@ -346,6 +365,14 @@ footer b{color:var(--foreground);font-weight:500}
     <button class="bigback" id="bigback" hidden><span class="ar">←</span><span id="bigbackLabel">뒤로</span></button>
   </div>
   <div class="stale" id="stale" hidden></div>
+  <a class="extlink" href="https://www.garak.co.kr/youtong/G1000349/dashboard/auctionStatus/1/page.do?tabId=2"
+     target="_blank" rel="noopener noreferrer"
+     title="서울시농수산식품공사 유통정보 · 경매 및 정가수의 현황 (새 창)">
+    <span class="el-title">경매 및 정가수의 현황<span class="ext">↗</span></span>
+    <span class="el-org"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+      aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>서울시농수산식품공사</span>
+  </a>
   <div class="nav" id="nav"></div>
   <div id="view"></div>
   <div class="news" id="news"></div>
